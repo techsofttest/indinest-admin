@@ -47,9 +47,9 @@ class AppServiceProvider extends ServiceProvider
             );
         });
 
-        // Grant all permissions to Super Admin role
+        // Grant all permissions to Super Admin role and admin/superadmin users
         \Illuminate\Support\Facades\Gate::before(function ($user, $ability) {
-            return $user->hasRole('Super Admin') ? true : null;
+            return ($user->hasRole('Super Admin') || in_array($user->role, ['admin', 'superadmin'])) ? true : null;
         });
 
        View::composer(

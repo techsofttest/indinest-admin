@@ -123,11 +123,22 @@ class CartController extends Controller
         $cart = $this->getCart();
         $existingIndex = $this->findExistingItemIndex($cart, $item);
 
+        $maxStock = 99;
+        if (!empty($item['variant_id'])) {
+            $variant = \App\Models\ProductVariant::find($item['variant_id']);
+            if ($variant) {
+                $maxStock = $variant->stock ?? 0;
+            }
+        }
+
         if ($existingIndex !== null) {
-            $cart[$existingIndex]['quantity'] += (int) $item['quantity'];
+            $newQty = $cart[$existingIndex]['quantity'] + (int) $item['quantity'];
+            $cart[$existingIndex]['quantity'] = min($newQty, $maxStock);
             $cart[$existingIndex]['price'] = (float) $item['price'];
         } else {
-            $cart[] = $this->normalizeItem($item);
+            $normalized = $this->normalizeItem($item);
+            $normalized['quantity'] = min($normalized['quantity'], $maxStock);
+            $cart[] = $normalized;
         }
 
         $this->saveCart($cart);
@@ -194,7 +205,14 @@ class CartController extends Controller
             if ((string) $item['id'] === $id) {
                 $updates = $validator->validated();
                 if (isset($updates['quantity'])) {
-                    $cart[$index]['quantity'] = (int) $updates['quantity'];
+                    $maxStock = 99;
+                    if (!empty($item['variant_id'])) {
+                        $variant = \App\Models\ProductVariant::find($item['variant_id']);
+                        if ($variant) {
+                            $maxStock = $variant->stock ?? 0;
+                        }
+                    }
+                    $cart[$index]['quantity'] = min((int) $updates['quantity'], $maxStock);
                 }
                 if (isset($updates['price'])) {
                     $cart[$index]['price'] = (float) $updates['price'];

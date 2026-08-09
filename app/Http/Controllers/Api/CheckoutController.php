@@ -88,8 +88,12 @@ class CheckoutController extends Controller
             $subtotal += $item['price'] * $item['quantity'];
         }
 
-        $shippingInfo = $this->deliveryEligibilityService->calculateShipping($postcode, $subtotal);
-        $shippingCost = $shippingInfo['shipping_cost'] ?? 0;
+        $shippingMethod = $request->input('shipping_method', 'standard');
+        $shippingRates = config('delivery.rates', [
+            'standard' => 4.00,
+            'express' => 6.00,
+        ]);
+        $shippingCost = (float) ($shippingRates[$shippingMethod] ?? $shippingRates['standard'] ?? 4.00);
 
         $customerId = $request->input('customer_id');
         if (! $customerId) {
@@ -159,10 +163,10 @@ class CheckoutController extends Controller
                 'notes' => $deliveryDetails['delivery_notes'] ?? ($request->input('notes') ?? null),
 
                 // payment
-                'shipping_method' => $request->input('delivery_type') ?? ($this->deliveryEligibilityService->isDirectDeliveryPostcode($postcode) ? 'direct' : 'courier'),
-                'payment_method' => $request->input('payment_method', 'card'),
-                'payment_status' => 'pending',
-                'status' => 'pending_payment',
+                'shipping_method' => $shippingMethod,
+                'payment_method' => $request->input('payment_method', 'cod'),
+                'payment_status' => 'paid',
+                'status' => 'processing',
                 
                 // pricing totals
                 'subtotal' => $subtotal,
@@ -220,7 +224,8 @@ class CheckoutController extends Controller
                 ]);
             }
 
-            $paymentIntent = $this->paymentGateway->createPaymentIntent($order);
+            // $paymentIntent = $this->paymentGateway->createPaymentIntent($order);
+            $paymentIntent = null;
 
             DB::commit();
 
@@ -232,7 +237,7 @@ class CheckoutController extends Controller
             ]);
         } catch (\Exception $e) {
             DB::rollBack();
-            return response()->json(['error' => 'Failed to create payment intent: ' . $e->getMessage()], 500);
+            return response()->json(['error' => 'Failed to place order: ' . $e->getMessage()], 500);
         }
     }
 
@@ -320,5 +325,13 @@ class CheckoutController extends Controller
                     ? 'Payment failed. Please try again or contact support.'
                     : 'Payment is being processed. Please wait...'),
         ]);
+    }
+
+    public function getShippingRates()
+    {
+        return response()->json(config('delivery.rates', [
+            'standard' => 4.00,
+            'express' => 6.00,
+        ]));
     }
 }

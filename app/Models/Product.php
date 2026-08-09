@@ -7,6 +7,8 @@ use Illuminate\Support\Str;
 
 class Product extends Model
 {
+    protected $with = ['fabric', 'color', 'occasion'];
+
     protected $fillable = [
         'sku',
         'name',
@@ -16,6 +18,12 @@ class Product extends Model
         'category_id',
         'key_features',
         'description',
+        'style_fit_tips',
+        'shipping_returns',
+        'faq',
+        'fabric_id',
+        'color_id',
+        'occasion_id',
         'featured_image',
         'is_featured',
         'is_active',
@@ -101,6 +109,21 @@ class Product extends Model
     public function brand()
     {
         return $this->belongsTo(Brand::class);
+    }
+
+    public function fabric()
+    {
+        return $this->belongsTo(Fabric::class);
+    }
+
+    public function color()
+    {
+        return $this->belongsTo(Color::class);
+    }
+
+    public function occasion()
+    {
+        return $this->belongsTo(Occasion::class);
     }
 
     public function orderItems()

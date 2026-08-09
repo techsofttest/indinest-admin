@@ -11,8 +11,10 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('coupons', function (Blueprint $table) {
-            $table->dropUnique('in_coupons_coupon_amount_unique');
+        Schema::table('products', function (Blueprint $table) {
+            $table->longText('style_fit_tips')->nullable();
+            $table->longText('shipping_returns')->nullable();
+            $table->longText('faq')->nullable();
         });
     }
 
@@ -21,8 +23,8 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('coupons', function (Blueprint $table) {
-            $table->unique('coupon_amount', 'in_coupons_coupon_amount_unique');
+        Schema::table('products', function (Blueprint $table) {
+            $table->dropColumn(['style_fit_tips', 'shipping_returns', 'faq']);
         });
     }
 };

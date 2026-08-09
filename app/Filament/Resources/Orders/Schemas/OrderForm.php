@@ -90,6 +90,7 @@ class OrderForm
                             TextInput::make('shipping_longitude')->disabled($isStaff),
                             TextInput::make('shipping_google_place_id')->disabled($isStaff),
                             TextInput::make('delivery_type')->disabled($isStaff),
+                            TextInput::make('shipping_method')->disabled($isStaff),
                             TextInput::make('warehouse_id')->disabled($isStaff),
                             TextInput::make('delivery_slot_id')->disabled($isStaff),
                             TextInput::make('delivery_date')->disabled($isStaff),
@@ -101,7 +102,7 @@ class OrderForm
                     ->schema([
                         Grid::make(2)->schema([
                             TextInput::make('subtotal')->numeric()->default(0.0)->disabled($isStaff),
-                            TextInput::make('shipping_cost')->numeric()->default(0.0)->prefix('$')->disabled($isStaff),
+                            TextInput::make('shipping_cost')->numeric()->default(0.0)->prefix('£')->disabled($isStaff),
                             TextInput::make('discount')->numeric()->default(0.0)->disabled($isStaff),
                             TextInput::make('coupon_code')->disabled($isStaff),
                             TextInput::make('grand_total')->numeric()->default(0.0)->disabled($isStaff),

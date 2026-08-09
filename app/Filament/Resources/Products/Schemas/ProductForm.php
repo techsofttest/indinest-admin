@@ -103,7 +103,25 @@ class ProductForm
                             ->relationship('brand', 'name')
                             ->searchable()
                             ->preload()
-                            ->label('Brand')
+                            ->label('Brand'),
+
+                        Select::make('fabric_id')
+                            ->relationship('fabric', 'name')
+                            ->searchable()
+                            ->preload()
+                            ->label('Fabric'),
+
+                        Select::make('color_id')
+                            ->relationship('color', 'name')
+                            ->searchable()
+                            ->preload()
+                            ->label('Color'),
+
+                        Select::make('occasion_id')
+                            ->relationship('occasion', 'name')
+                            ->searchable()
+                            ->preload()
+                            ->label('Occasion')
 
                     ])->columnSpanFull(),
 
@@ -221,6 +239,18 @@ class ProductForm
 
                     RichEditor::make('description')
                         ->label('Product Description')
+                        ->columnSpanFull(),
+
+                    RichEditor::make('style_fit_tips')
+                        ->label('Style and Fit Tips')
+                        ->columnSpanFull(),
+
+                    RichEditor::make('shipping_returns')
+                        ->label('Shipping and Returns')
+                        ->columnSpanFull(),
+
+                    RichEditor::make('faq')
+                        ->label('FAQ')
                         ->columnSpanFull(),
 
                 ])->columnSpanFull(),

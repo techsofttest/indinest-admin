@@ -19,7 +19,10 @@ class StripePaymentService implements PaymentGatewayInterface
 
     public function __construct()
     {
-        $this->stripe = new StripeClient(config('services.stripe.secret') ?? '');
+        $secret = config('services.stripe.secret');
+        if (!empty($secret)) {
+            $this->stripe = new StripeClient($secret);
+        }
         $this->currency = config('services.stripe.currency', 'AUD');
     }
 

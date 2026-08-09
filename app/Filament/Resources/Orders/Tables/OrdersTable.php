@@ -32,8 +32,15 @@ class OrdersTable
                 TextColumn::make('shipping_postcode')
                     ->label('Postcode')
                     ->searchable(),
+                TextColumn::make('shipping_method')
+                    ->label('Shipping Method')
+                    ->badge()
+                    ->color('gray'),
+                TextColumn::make('shipping_cost')
+                    ->label('Shipping Cost')
+                    ->money('GBP'),
                 TextColumn::make('grand_total')
-                    ->money('AUD')
+                    ->money('GBP')
                     ->sortable(),
                 TextColumn::make('payment_status')
                     ->badge()

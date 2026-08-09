@@ -18,6 +18,8 @@ Route::get('/login', function () {
 Route::get('/storefront/home', [StorefrontController::class, 'home']);
 Route::get('/storefront/header', [StorefrontController::class, 'header']);
 Route::get('/storefront/categories', [StorefrontController::class, 'categories']);
+Route::get('/storefront/featured-categories', [StorefrontController::class, 'featuredCategories']);
+Route::get('/storefront/master-filters', [StorefrontController::class, 'masterFilters']);
 Route::get('/storefront/departments', [StorefrontController::class, 'departments']);
 Route::get('/storefront/products', [StorefrontController::class, 'products']);
 Route::get('/storefront/products/id/{id}', [StorefrontController::class, 'productById']);
@@ -28,6 +30,7 @@ Route::get('/storefront/faqs', [StorefrontController::class, 'faqs']);
 Route::get('/cms/{slug}', [CmsController::class, 'show']);
 
 Route::post('/delivery/check', [DeliveryEligibilityController::class, 'check']);
+Route::get('/shipping/rates', [CheckoutController::class, 'getShippingRates']);
 Route::post('/coupons/validate', [CouponController::class, 'validate'])->middleware('web');
 Route::post('/checkout', [CheckoutController::class, 'create'])->middleware('web');
 Route::post('/checkout/retry', [CheckoutController::class, 'retry'])->middleware('web');

@@ -69,6 +69,12 @@ class StorefrontController extends Controller
             'variants' => $inStockVariants->map(fn ($variant) => $this->variantPayload($variant))->values(),
             'description' => $product->description,
             'key_features' => $product->key_features,
+            'style_fit_tips' => $product->style_fit_tips,
+            'shipping_returns' => $product->shipping_returns,
+            'faq' => $product->faq,
+            'fabric' => $product->fabric?->name,
+            'colour' => $product->color?->name,
+            'occasion' => $product->occasion?->name,
             'meta_title' => $product->meta_title,
             'meta_description' => $product->meta_description,
         ];
@@ -455,6 +461,22 @@ class StorefrontController extends Controller
             $query->whereHas('brand', fn ($q) => $q->where('slug', $brandSlug));
         }
 
+        if ($departmentSlug = $request->string('department')->toString()) {
+            $department = \App\Models\Department::where('slug', $departmentSlug)->first();
+            if ($department) {
+                $categoryIds = \App\Models\Category::where('department_id', $department->id)->pluck('id')->all();
+                if (!empty($categoryIds)) {
+                    $subCategoryIds = \App\Models\Category::whereIn('parent_id', $categoryIds)->pluck('id')->all();
+                    $allCategoryIds = array_merge($categoryIds, $subCategoryIds);
+                    $query->whereIn('category_id', $allCategoryIds);
+                } else {
+                    $query->whereRaw('1 = 0');
+                }
+            } else {
+                $query->whereRaw('1 = 0');
+            }
+        }
+
         if ($search = $request->string('search')->toString()) {
             $query->where(function ($q) use ($search) {
                 $q->where('name', 'like', '%' . $search . '%')
@@ -564,8 +586,35 @@ class StorefrontController extends Controller
             'image_url' => $this->assetUrl($department->image),
             'description' => $department->description,
             'sort_order' => (int) $department->sort_order,
-            'href' => '/department/' . $department->slug,
+            'href' => '/departments/' . $department->slug,
         ]));
+    }
+
+    public function featuredCategories(): JsonResponse
+    {
+        $categories = \App\Models\Category::query()
+            ->where('is_active', true)
+            ->where('home_featured', true)
+            ->orderBy('sort_order', 'asc')
+            ->orderBy('name', 'asc')
+            ->get();
+
+        return response()->json($categories->map(fn ($category) => [
+            'id' => $category->id,
+            'name' => $category->name,
+            'slug' => $category->slug,
+            'image_url' => $this->getCategoryImageUrl($category),
+        ]));
+    }
+
+    public function masterFilters(): JsonResponse
+    {
+        return response()->json([
+            'occasions' => \App\Models\Occasion::pluck('name')->filter()->values(),
+            'fabrics' => \App\Models\Fabric::pluck('name')->filter()->values(),
+            'colors' => \App\Models\Color::pluck('name')->filter()->values(),
+            'brands' => \App\Models\Brand::pluck('name')->filter()->values(),
+        ]);
     }
 
     public function home(): JsonResponse
