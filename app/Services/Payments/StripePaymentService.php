@@ -6,6 +6,8 @@ use App\Models\Order;
 use App\Models\PaymentTransaction;
 use App\Models\StripeWebhookLog;
 use App\Models\ProductVariant;
+use App\Enums\TransactionType;
+use App\Enums\TransactionStatus;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Stripe\StripeClient;
@@ -118,6 +120,9 @@ class StripePaymentService implements PaymentGatewayInterface
                     case 'checkout.session.completed':
                         $this->handleCheckoutSessionCompleted($event->data->object, $eventId);
                         break;
+                    case 'payment_intent.created':
+                        Log::info("Stripe PaymentIntent created event ignored: {$eventId}");
+                        break;
                     case 'payment_intent.succeeded':
                         $this->handlePaymentIntentSucceeded($event->data->object, $eventId);
                         break;
@@ -181,19 +186,25 @@ class StripePaymentService implements PaymentGatewayInterface
 
         $chargeId = $paymentIntent->latest_charge ?? null;
 
-        // Create transaction record
-        PaymentTransaction::create([
-            'order_id' => $order->id,
-            'gateway' => 'stripe',
-            'transaction_type' => 'payment_intent.succeeded',
-            'payment_intent' => $paymentIntent->id,
-            'charge_id' => $chargeId,
-            'event_id' => $eventId,
-            'status' => 'succeeded',
-            'amount' => $paymentIntent->amount / 100,
-            'currency' => strtoupper($paymentIntent->currency),
-            'response' => (array) $paymentIntent,
-        ]);
+        // Create transaction record idempotently
+        $existingTx = PaymentTransaction::where('order_id', $order->id)
+            ->where('transaction_type', TransactionType::PAYMENT_INTENT_SUCCEEDED)
+            ->first();
+
+        if (!$existingTx) {
+            PaymentTransaction::create([
+                'order_id' => $order->id,
+                'gateway' => 'stripe',
+                'transaction_type' => TransactionType::PAYMENT_INTENT_SUCCEEDED,
+                'payment_intent' => $paymentIntent->id,
+                'charge_id' => $chargeId,
+                'event_id' => $eventId,
+                'status' => TransactionStatus::SUCCEEDED,
+                'amount' => $paymentIntent->amount / 100,
+                'currency' => strtoupper($paymentIntent->currency),
+                'response' => (array) $paymentIntent,
+            ]);
+        }
 
         // Reduce inventory inside the transaction (Phase 10: exclusive to webhook processing)
         try {
@@ -369,6 +380,12 @@ class StripePaymentService implements PaymentGatewayInterface
             'success_url' => $successUrl,
             'cancel_url' => $cancelUrl,
             'customer_email' => $order->customer_email,
+            'payment_intent_data' => [
+                'metadata' => [
+                    'order_id' => $order->id,
+                    'order_number' => $order->order_number,
+                ],
+            ],
             'metadata' => [
                 'order_id' => $order->id,
                 'order_number' => $order->order_number,
@@ -417,19 +434,25 @@ class StripePaymentService implements PaymentGatewayInterface
             }
         }
 
-        // Create transaction record
-        PaymentTransaction::create([
-            'order_id' => $order->id,
-            'gateway' => 'stripe',
-            'transaction_type' => 'checkout.session.completed',
-            'payment_intent' => $paymentIntentId,
-            'charge_id' => $chargeId,
-            'event_id' => $eventId,
-            'status' => 'succeeded',
-            'amount' => $session->amount_total / 100,
-            'currency' => strtoupper($session->currency),
-            'response' => (array) $session,
-        ]);
+        // Create transaction record idempotently
+        $existingTx = PaymentTransaction::where('order_id', $order->id)
+            ->where('transaction_type', TransactionType::PAYMENT_INTENT_SUCCEEDED)
+            ->first();
+
+        if (!$existingTx) {
+            PaymentTransaction::create([
+                'order_id' => $order->id,
+                'gateway' => 'stripe',
+                'transaction_type' => TransactionType::PAYMENT_INTENT_SUCCEEDED,
+                'payment_intent' => $paymentIntentId,
+                'charge_id' => $chargeId,
+                'event_id' => $eventId,
+                'status' => TransactionStatus::SUCCEEDED,
+                'amount' => $session->amount_total / 100,
+                'currency' => strtoupper($session->currency),
+                'response' => (array) $session,
+            ]);
+        }
 
         // Reduce inventory
         try {
