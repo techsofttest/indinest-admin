@@ -348,7 +348,7 @@ class StripePaymentService implements PaymentGatewayInterface
     public function createCheckoutSession(Order $order): string
     {
         $amount = (int) round($order->grand_total * 100);
-        $appUrl = rtrim(env('NEXT_PUBLIC_APP_URL', 'http://localhost:3000'), '/');
+        $appUrl = rtrim(env('FRONTEND_URL'), '/');
 
         $successUrl = $appUrl . '/checkout/success?order_id=' . $order->id . '&session_id={CHECKOUT_SESSION_ID}';
         $cancelUrl = $appUrl . '/checkout?order_id=' . $order->id . '&cancel=true';
