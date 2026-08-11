@@ -53,6 +53,11 @@
             color: rgb(22, 101, 52);
         }
 
+        .order-status-not_required {
+            background: rgb(243, 244, 246);
+            color: rgb(107, 114, 128);
+        }
+
         .order-status-pending, .order-status-processing {
             background: rgb(254, 243, 199);
             color: rgb(146, 64, 14);
@@ -66,6 +71,11 @@
         .dark .order-status-paid, .dark .order-status-completed {
             background: rgb(20, 83, 45);
             color: rgb(187, 247, 208);
+        }
+
+        .dark .order-status-not_required {
+            background: rgb(55, 65, 81);
+            color: rgb(156, 163, 175);
         }
 
         .dark .order-status-pending, .dark .order-status-processing {
@@ -481,10 +491,10 @@
 
             <div class="order-detail-status-badges">
                 <span class="order-status-badge order-status-{{ $this->record->status->value }}">
-                    {{ ucfirst($this->record->status->value) }}
+                    {{ $this->record->status->value === 'pending_payment' ? 'Pending Payment' : ucfirst($this->record->status->value) }}
                 </span>
                 <span class="order-status-badge order-status-{{ $this->record->payment_status->value }}">
-                    {{ ucfirst($this->record->payment_status->value) }}
+                    {{ $this->record->payment_status->value === 'not_required' ? 'Not Required' : ucfirst($this->record->payment_status->value) }}
                 </span>
             </div>
         </div>
@@ -493,6 +503,8 @@
             <span>
                 {{ $this->record->created_at?->format('F j, Y \a\t g:i A') }}
             </span>
+            <span>•</span>
+            <span>Type: <strong>{{ ucfirst($this->record->order_type) }}</strong></span>
             <span>•</span>
             <span>{{ $this->record->items->count() }} items</span>
         </div>
@@ -534,29 +546,7 @@
                                 @endif
                             </div>
 
-                            <div style="align-self: center; margin-right: 1.5rem;">
-                                @if ($item->is_picked)
-                                    <x-filament::button
-                                        type="button"
-                                        wire:click="togglePicked({{ $item->id }})"
-                                        color="success"
-                                        icon="heroicon-m-check"
-                                        size="xs"
-                                    >
-                                        Picked
-                                    </x-filament::button>
-                                @else
-                                    <x-filament::button
-                                        type="button"
-                                        wire:click="togglePicked({{ $item->id }})"
-                                        color="danger"
-                                        icon="heroicon-m-x-mark"
-                                        size="xs"
-                                    >
-                                        Not Picked
-                                    </x-filament::button>
-                                @endif
-                            </div>
+
 
                             <div class="order-product-price">
                                 <div class="order-product-quantity">

@@ -4,6 +4,7 @@ namespace App\Enums;
 
 enum OrderStatus: string
 {
+    case PENDING = 'pending';
     case PENDING_PAYMENT = 'pending_payment';
     case CONFIRMED = 'confirmed';
     case PROCESSING = 'processing';

@@ -25,7 +25,33 @@ class ViewOrder extends ViewRecord
     protected function getHeaderActions(): array
     {
         return [
-            //EditAction::make(),
+            \Filament\Actions\Action::make('markAsDelivered')
+                ->label('Mark as Delivered')
+                ->color('success')
+                ->icon('heroicon-o-truck')
+                ->requiresConfirmation()
+                ->modalHeading('Mark Order as Delivered')
+                ->modalDescription('Are you sure you want to mark this order as delivered?')
+                ->visible(fn () => 
+                    $this->record->status !== \App\Enums\OrderStatus::DELIVERED &&
+                    ($this->record->order_type === 'enquiry' || $this->record->payment_status === \App\Enums\PaymentStatus::PAID)
+                )
+                ->action(function () {
+                    try {
+                        $this->record->markAsDelivered();
+                        \Filament\Notifications\Notification::make()
+                            ->title('Success')
+                            ->body('Order has been marked as delivered.')
+                            ->success()
+                            ->send();
+                    } catch (\Exception $e) {
+                        \Filament\Notifications\Notification::make()
+                            ->title('Error')
+                            ->body($e->getMessage())
+                            ->danger()
+                            ->send();
+                    }
+                }),
         ];
     }
 }

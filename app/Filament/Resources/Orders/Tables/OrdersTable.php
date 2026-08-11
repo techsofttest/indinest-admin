@@ -19,13 +19,13 @@ class OrdersTable
                 TextColumn::make('order_number')
                     ->searchable()
                     ->sortable(),
-                TextColumn::make('assignedStaff.name')
-                    ->label('Assigned Staff')
-                    ->placeholder('-')
-                    ->searchable()
-                    ->sortable(),
                 TextColumn::make('customer_name')
                     ->searchable(),
+                TextColumn::make('order_type')
+                    ->label('Type')
+                    ->badge()
+                    ->formatStateUsing(fn ($state) => ucfirst($state))
+                    ->color(fn ($state): string => $state === 'enquiry' ? 'warning' : 'success'),
                 TextColumn::make('delivery_type')
                     ->badge()
                     ->color(fn ($state): string => $state === 'direct' ? 'success' : 'gray'),
@@ -50,8 +50,13 @@ class OrdersTable
                             'pending' => 'warning',
                             'paid' => 'success',
                             'failed' => 'danger',
+                            'not_required' => 'gray',
                             default => 'gray',
                         };
+                    })
+                    ->formatStateUsing(function ($state): string {
+                        $value = $state instanceof \BackedEnum ? $state->value : $state;
+                        return $value === 'not_required' ? 'Not Required' : ucfirst($value);
                     }),
                 TextColumn::make('status')
                     ->badge()
@@ -68,6 +73,10 @@ class OrdersTable
                             'cancelled' => 'danger',
                             default => 'gray',
                         };
+                    })
+                    ->formatStateUsing(function ($state): string {
+                        $value = $state instanceof \BackedEnum ? $state->value : $state;
+                        return $value === 'pending_payment' ? 'Pending Payment' : ucfirst($value);
                     }),
                 TextColumn::make('created_at')
                     ->label('Date')
@@ -75,78 +84,49 @@ class OrdersTable
                     ->sortable(),
             ])
             ->filters([
+                \Filament\Tables\Filters\SelectFilter::make('order_type')
+                    ->label('Type')
+                    ->options([
+                        'order' => 'Order',
+                        'enquiry' => 'Enquiry',
+                    ]),
                 \Filament\Tables\Filters\SelectFilter::make('payment_status')
                     ->label('Payment Status')
                     ->options([
                         'pending' => 'Pending',
                         'paid' => 'Paid',
                         'failed' => 'Failed',
+                        'not_required' => 'Not Required',
                     ]),
-                \Filament\Tables\Filters\SelectFilter::make('assigned_staff_id')
-                    ->label('Assigned Staff')
-                    ->options(function () {
-                        return \App\Models\User::where('role', 'staff')
-                            ->orWhereHas('roles', fn ($q) => $q->where('name', 'Staff'))
-                            ->orWhereHas('permissions', fn ($q) => $q->where('name', 'delivery.driver'))
-                            ->pluck('name', 'id');
-                    }),
-                \Filament\Tables\Filters\Filter::make('unassigned')
-                    ->label('Unassigned Orders')
-                    ->query(fn (\Illuminate\Database\Eloquent\Builder $query) => $query->whereNull('assigned_staff_id')),
             ])
             ->recordActions([
                 ViewAction::make(),
-                \Filament\Actions\Action::make('assignStaff')
-                    ->label('Assign Staff')
-                    ->icon('heroicon-o-user')
-                    ->visible(fn () => auth()->user()?->can('orders.assign') ?? false)
-                    ->form([
-                        \Filament\Forms\Components\Select::make('assigned_staff_id')
-                            ->label('Staff Member')
-                            ->options(function () {
-                                return \App\Models\User::where('role', 'staff')
-                                    ->orWhereHas('roles', fn ($q) => $q->where('name', 'Staff'))
-                                    ->orWhereHas('permissions', fn ($q) => $q->where('name', 'delivery.driver'))
-                                    ->pluck('name', 'id');
-                            })
-                            ->placeholder('Select a staff member')
-                            ->required(),
-                    ])
-                    ->action(function (\App\Models\Order $record, array $data): void {
-                        $record->update([
-                            'assigned_staff_id' => $data['assigned_staff_id'],
-                            'assigned_at' => now(),
-                            'assigned_by' => auth()->id(),
-                        ]);
+                \Filament\Actions\Action::make('markAsDelivered')
+                    ->label('Mark as Delivered')
+                    ->icon('heroicon-o-truck')
+                    ->color('success')
+                    ->requiresConfirmation()
+                    ->modalHeading('Mark Order as Delivered')
+                    ->modalDescription('Are you sure you want to mark this order as delivered?')
+                    ->visible(fn (\App\Models\Order $record) => 
+                        $record->status !== \App\Enums\OrderStatus::DELIVERED &&
+                        ($record->order_type === 'enquiry' || $record->payment_status === \App\Enums\PaymentStatus::PAID)
+                    )
+                    ->action(function (\App\Models\Order $record): void {
+                        try {
+                            $record->markAsDelivered();
+                        } catch (\Exception $e) {
+                            \Filament\Notifications\Notification::make()
+                                ->title('Error')
+                                ->body($e->getMessage())
+                                ->danger()
+                                ->send();
+                        }
                     }),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
-                    \Filament\Actions\BulkAction::make('bulkAssignStaff')
-                        ->label('Assign Staff')
-                        ->icon('heroicon-o-user')
-                        ->visible(fn () => auth()->user()?->can('orders.assign') ?? false)
-                        ->form([
-                            \Filament\Forms\Components\Select::make('assigned_staff_id')
-                                ->label('Staff Member')
-                                ->options(function () {
-                                    return \App\Models\User::where('role', 'staff')
-                                        ->orWhereHas('roles', fn ($q) => $q->where('name', 'Staff'))
-                                        ->orWhereHas('permissions', fn ($q) => $q->where('name', 'delivery.driver'))
-                                        ->pluck('name', 'id');
-                                })
-                                ->placeholder('Select a staff member')
-                                ->required(),
-                        ])
-                        ->action(function (\Illuminate\Support\Collection $records, array $data): void {
-                            $records->each(function ($record) use ($data) {
-                                $record->update([
-                                    'assigned_staff_id' => $data['assigned_staff_id'],
-                                    'assigned_at' => now(),
-                                    'assigned_by' => auth()->id(),
-                                ]);
-                            });
-                        }),
+                    DeleteBulkAction::make(),
                 ]),
             ]);
     }

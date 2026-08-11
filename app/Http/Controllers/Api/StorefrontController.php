@@ -333,6 +333,12 @@ class StorefrontController extends Controller
             ->limit(6)
             ->get();
 
+        $homeFeatured = Category::query()
+            ->where('home_featured', true)
+            ->where('is_active', true)
+            ->orderBy('sort_order')
+            ->get();
+
         return response()->json([
             'brand' => [
                 'name' => config('app.name'),
@@ -350,6 +356,12 @@ class StorefrontController extends Controller
                 'href' => '/category/' . $category->slug,
                 'image_url' => $this->getCategoryImageUrl($category),
                 'icon_url' => $this->assetUrl($category->icon),
+            ])->values(),
+            'home_featured_categories' => $homeFeatured->map(fn (Category $category) => [
+                'id' => $category->id,
+                'name' => $category->name,
+                'slug' => $category->slug,
+                'href' => '/category/' . $category->slug,
             ])->values(),
         ]);
     }
@@ -486,6 +498,23 @@ class StorefrontController extends Controller
             });
         }
 
+        // Checkbox filters: accept comma-separated or array values
+        if ($colours = array_filter(explode(',', $request->string('colour')->toString()))) {
+            $query->whereHas('color', fn ($q) => $q->whereIn('name', $colours));
+        }
+
+        if ($fabrics = array_filter(explode(',', $request->string('fabric')->toString()))) {
+            $query->whereHas('fabric', fn ($q) => $q->whereIn('name', $fabrics));
+        }
+
+        if ($occasions = array_filter(explode(',', $request->string('occasion')->toString()))) {
+            $query->whereHas('occasion', fn ($q) => $q->whereIn('name', $occasions));
+        }
+
+        if ($brands = array_filter(explode(',', $request->string('brand_name')->toString()))) {
+            $query->whereHas('brand', fn ($q) => $q->whereIn('name', $brands));
+        }
+
         $featuredFilter = $request->string('featured')->toString();
         if ($featuredFilter !== '') {
             if (in_array(strtolower($featuredFilter), ['1', 'true', 'yes'], true)) {
@@ -522,17 +551,7 @@ class StorefrontController extends Controller
 
         $products = $query->get();
 
-        if ($products->count() < $minProducts && ! $request->has('brand') && ! $request->has('search') && $categoryIds) {
-            $alreadyIncludedIds = $products->pluck('id')->all();
 
-            $fallbackProducts = (clone $baseQuery)
-                ->whereNotIn('id', $alreadyIncludedIds)
-                ->latest()
-                ->take($minProducts - $products->count())
-                ->get();
-
-            $products = $products->merge($fallbackProducts)->take($minProducts)->values();
-        }
 
         $page = (int) $request->integer('page', 1);
         $paginator = new LengthAwarePaginator(
@@ -724,5 +743,44 @@ class StorefrontController extends Controller
             ->get();
 
         return response()->json($faqs);
+    }
+
+    public function lookbooks(): JsonResponse
+    {
+        $lookbooks = \App\Models\Lookbook::with(['lookbookProducts.product.category'])
+            ->where('is_active', true)
+            ->orderBy('sort_order')
+            ->get();
+
+        return response()->json($lookbooks->map(fn ($l) => [
+            'id' => $l->id,
+            'title' => $l->title,
+            'subtitle' => $l->subtitle,
+            'slug' => $l->slug,
+            'model_image' => $this->assetUrl($l->model_image),
+            'model_alt' => $l->model_alt ?? $l->title,
+            'items' => $l->lookbookProducts
+                ->sortBy('sort_order')
+                ->map(function ($lp) {
+                    $p = $lp->product;
+                    if (!$p || !$p->is_active) {
+                        return null;
+                    }
+                    $price = $p->variants->first() ? (float) $p->variants->first()->selling_price : 0.00;
+                    return [
+                        'id' => $p->id,
+                        'product_id' => $p->id,
+                        'name' => $p->name,
+                        'brand' => $p->brand ? $p->brand->name : 'IndiNest',
+                        'price' => $price,
+                        'category' => $p->category ? $p->category->name : 'General',
+                        'image' => $this->assetUrl($p->featured_image),
+                        'slug' => $p->slug,
+                        'url' => '/products/' . $p->slug,
+                    ];
+                })
+                ->filter()
+                ->values()
+        ])->values());
     }
 }

@@ -11,6 +11,11 @@ use Illuminate\Support\Str;
 
 use App\Services\DeliveryEligibilityService;
 use Illuminate\Support\Facades\DB;
+use App\Models\Country;
+use App\Models\Enquiry;
+use App\Mail\OrderEnquiryMail;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Log;
 
 class CheckoutController extends Controller
 {
@@ -45,41 +50,59 @@ class CheckoutController extends Controller
         $deliveryDetails = $request->input('address') ?? $request->input('delivery_details') ?? [];
         $postcode = $deliveryDetails['postcode'] ?? '2000';
 
-        // Validate delivery availability for the cart and postcode
-        $deliveryCheck = $this->deliveryEligibilityService->validateCart($postcode, $request->input('cart') ?? []);
-        if (isset($deliveryCheck['valid']) && ! $deliveryCheck['valid']) {
-            return response()->json(['error' => $deliveryCheck['message'] ?? 'Delivery not available for this postcode.'], 422);
+        // Retrieve country and validate is_active
+        $countryStr = $deliveryDetails['country'] ?? null;
+        if (!$countryStr) {
+            return response()->json(['error' => 'Country is required.'], 422);
         }
 
-        // Determine delivery type (direct/courier)
-        $deliveryType = $request->input('delivery_type') ?? ($deliveryCheck['delivery_type'] ?? null);
+        $country = Country::where('code', strtoupper($countryStr))
+            ->orWhere('name', $countryStr)
+            ->first();
 
-        // If direct delivery is required, ensure delivery_date and delivery_slot_id are provided and valid
-        if ($deliveryType === 'direct') {
-            $deliveryDate = $request->input('delivery_date');
-            $deliverySlotId = $request->input('delivery_slot_id');
+        if (!$country || !$country->is_active) {
+            return response()->json(['error' => 'The selected country is not available for delivery.'], 422);
+        }
 
-            $slotValid = false;
-            $availableDates = $this->deliveryEligibilityService->getAvailableDatesAndSlots('direct');
-            foreach ($availableDates as $d) {
-                if (($d['date'] ?? null) === $deliveryDate) {
-                    $slots = $d['slots'] ?? [];
-                    foreach ($slots as $s) {
-                        if (($s['id'] ?? null) == $deliverySlotId) {
-                            $slotValid = true;
-                            break 2;
+        $checkoutType = $country->checkout_type;
+
+        if ($checkoutType === 'payment') {
+            // Validate delivery availability for the cart and postcode
+            $deliveryCheck = $this->deliveryEligibilityService->validateCart($postcode, $request->input('cart') ?? []);
+            if (isset($deliveryCheck['valid']) && ! $deliveryCheck['valid']) {
+                return response()->json(['error' => $deliveryCheck['message'] ?? 'Delivery not available for this postcode.'], 422);
+            }
+
+            // Determine delivery type (direct/courier)
+            $deliveryType = $request->input('delivery_type') ?? ($deliveryCheck['delivery_type'] ?? null);
+
+            // If direct delivery is required, ensure delivery_date and delivery_slot_id are provided and valid
+            if ($deliveryType === 'direct') {
+                $deliveryDate = $request->input('delivery_date');
+                $deliverySlotId = $request->input('delivery_slot_id');
+
+                $slotValid = false;
+                $availableDates = $this->deliveryEligibilityService->getAvailableDatesAndSlots('direct');
+                foreach ($availableDates as $d) {
+                    if (($d['date'] ?? null) === $deliveryDate) {
+                        $slots = $d['slots'] ?? [];
+                        foreach ($slots as $s) {
+                            if (($s['id'] ?? null) == $deliverySlotId) {
+                                $slotValid = true;
+                                break 2;
+                            }
                         }
                     }
                 }
-            }
 
-            $errors = [];
-            if (! $deliveryDate) $errors['delivery_date'] = ['Delivery date is required for direct delivery.'];
-            if (! $deliverySlotId) $errors['delivery_slot_id'] = ['Delivery slot is required for direct delivery.'];
-            if ($deliverySlotId && ! $slotValid) $errors['delivery_slot_id'] = ['Selected delivery slot is not available.'];
+                $errors = [];
+                if (! $deliveryDate) $errors['delivery_date'] = ['Delivery date is required for direct delivery.'];
+                if (! $deliverySlotId) $errors['delivery_slot_id'] = ['Delivery slot is required for direct delivery.'];
+                if ($deliverySlotId && ! $slotValid) $errors['delivery_slot_id'] = ['Selected delivery slot is not available.'];
 
-            if (! empty($errors)) {
-                return response()->json(['errors' => $errors], 422);
+                if (! empty($errors)) {
+                    return response()->json(['errors' => $errors], 422);
+                }
             }
         }
 
@@ -88,19 +111,12 @@ class CheckoutController extends Controller
             $subtotal += $item['price'] * $item['quantity'];
         }
 
-        $shippingMethod = $request->input('shipping_method', 'standard');
-        $shippingRates = config('delivery.rates', [
-            'standard' => 4.00,
-            'express' => 6.00,
-        ]);
-        $shippingCost = (float) ($shippingRates[$shippingMethod] ?? $shippingRates['standard'] ?? 4.00);
-
         $customerId = $request->input('customer_id');
         if (! $customerId) {
             $customerId = session()->get('customer_id');
         }
         if (! $customerId) {
-            $customerId = \Illuminate\Support\Facades\Auth::guard('customer')->id();
+            $customerId = \Illuminate\Support\Facades\Auth::guard('sanctum')->id() ?: \Illuminate\Support\Facades\Auth::guard('customer')->id();
         }
 
         $discount = 0;
@@ -117,127 +133,244 @@ class CheckoutController extends Controller
             $discount = (float) $couponResult['discount'];
         }
 
-        $tax = 0;
-        $grandTotal = max(0, $subtotal - $discount + $shippingCost);
-
-        DB::beginTransaction();
-        try {
-            $order = Order::create([
-                'order_number' => 'TEMP-' . Str::upper(Str::random(10)),
-                'customer_id' => $customerId,
-                'customer_name' => $request->input('customer_name') ?? ($deliveryDetails['contact_name'] ?? $deliveryDetails['name'] ?? null),
-                'customer_email' => $request->input('customer_email') ?? ($deliveryDetails['email'] ?? null),
-                'customer_phone' => $request->input('customer_phone') ?? ($deliveryDetails['phone'] ?? null),
-                
-                // billing details
-                'first_name' => explode(' ', ($deliveryDetails['contact_name'] ?? $deliveryDetails['name'] ?? 'Guest'), 2)[0] ?? 'Guest',
-                'last_name' => explode(' ', ($deliveryDetails['contact_name'] ?? $deliveryDetails['name'] ?? 'Guest'), 2)[1] ?? '',
-                'email' => $request->input('customer_email') ?? ($deliveryDetails['email'] ?? null),
-                'phone' => $request->input('customer_phone') ?? ($deliveryDetails['phone'] ?? ''),
-                'country' => $deliveryDetails['country'] ?? 'Australia',
-                'address' => $deliveryDetails['address_line_1'] ?? ($deliveryDetails['address'] ?? ''),
-                'apartment' => $deliveryDetails['address_line_2'] ?? null,
-                'city' => $deliveryDetails['city'] ?? 'Sydney',
-                'state' => $deliveryDetails['state'] ?? 'NSW',
-                'pin_code' => $deliveryDetails['postcode'] ?? '2000',
-
-                // shipping snapshot
-                'shipping_name' => $deliveryDetails['contact_name'] ?? $deliveryDetails['name'] ?? null,
-                'shipping_phone' => $deliveryDetails['phone'] ?? null,
-                'shipping_address_line_1' => $deliveryDetails['address_line_1'] ?? ($deliveryDetails['address'] ?? null),
-                'shipping_address_line_2' => $deliveryDetails['address_line_2'] ?? null,
-                'shipping_suburb' => $deliveryDetails['suburb'] ?? null,
-                'shipping_city' => $deliveryDetails['city'] ?? null,
-                'shipping_state' => $deliveryDetails['state'] ?? null,
-                'shipping_postcode' => $deliveryDetails['postcode'] ?? null,
-                'shipping_country' => $deliveryDetails['country'] ?? 'Australia',
-                'shipping_latitude' => $deliveryDetails['latitude'] ?? null,
-                'shipping_longitude' => $deliveryDetails['longitude'] ?? null,
-                'shipping_google_place_id' => $deliveryDetails['google_place_id'] ?? null,
-
-                // delivery fulfillment
-                'delivery_type' => $request->input('delivery_type') ?? ($this->deliveryEligibilityService->isDirectDeliveryPostcode($postcode) ? 'direct' : 'courier'),
-                'delivery_slot_id' => $request->input('delivery_slot_id'),
-                'delivery_date' => $request->input('delivery_date'),
-                'delivery_notes' => $deliveryDetails['delivery_notes'] ?? ($request->input('notes') ?? null),
-                'notes' => $deliveryDetails['delivery_notes'] ?? ($request->input('notes') ?? null),
-
-                // payment
-                'shipping_method' => $shippingMethod,
-                'payment_method' => $request->input('payment_method', 'cod'),
-                'payment_status' => 'paid',
-                'status' => 'processing',
-                
-                // pricing totals
-                'subtotal' => $subtotal,
-                'shipping_cost' => $shippingCost,
-                'coupon_code' => $couponCode,
-                'discount' => $discount,
-                'grand_total' => $grandTotal,
+        if ($checkoutType === 'payment') {
+            $shippingMethod = $request->input('shipping_method', 'standard');
+            $shippingRates = config('delivery.rates', [
+                'standard' => 4.00,
+                'express' => 6.00,
             ]);
+            $shippingCost = (float) ($shippingRates[$shippingMethod] ?? $shippingRates['standard'] ?? 4.00);
+            $grandTotal = max(0, $subtotal - $discount + $shippingCost);
 
-            $order->update([
-                'order_number' => 'TC-' . str_pad($order->id, 6, '0', STR_PAD_LEFT),
-            ]);
+            DB::beginTransaction();
+            try {
+                $order = Order::create([
+                    'order_number' => 'TEMP-' . Str::upper(Str::random(10)),
+                    'customer_id' => $customerId,
+                    'customer_name' => $request->input('customer_name') ?? ($deliveryDetails['contact_name'] ?? $deliveryDetails['name'] ?? null),
+                    'customer_email' => $request->input('customer_email') ?? ($deliveryDetails['email'] ?? null),
+                    'customer_phone' => $request->input('customer_phone') ?? ($deliveryDetails['phone'] ?? null),
+                    
+                    // billing details
+                    'first_name' => explode(' ', ($deliveryDetails['contact_name'] ?? $deliveryDetails['name'] ?? 'Guest'), 2)[0] ?? 'Guest',
+                    'last_name' => explode(' ', ($deliveryDetails['contact_name'] ?? $deliveryDetails['name'] ?? 'Guest'), 2)[1] ?? '',
+                    'email' => $request->input('customer_email') ?? ($deliveryDetails['email'] ?? null),
+                    'phone' => $request->input('customer_phone') ?? ($deliveryDetails['phone'] ?? ''),
+                    'country' => $country->name,
+                    'address' => $deliveryDetails['address_line_1'] ?? ($deliveryDetails['address'] ?? ''),
+                    'apartment' => $deliveryDetails['address_line_2'] ?? null,
+                    'city' => $deliveryDetails['city'] ?? '',
+                    'state' => $deliveryDetails['state'] ?? 'N/A',
+                    'pin_code' => $deliveryDetails['postcode'] ?? '',
 
-            // Create order items
-            foreach ($request->input('cart') as $item) {
-                $product = \App\Models\Product::find($item['product_id']);
+                    // shipping snapshot
+                    'shipping_name' => $deliveryDetails['contact_name'] ?? $deliveryDetails['name'] ?? null,
+                    'shipping_phone' => $deliveryDetails['phone'] ?? null,
+                    'shipping_address_line_1' => $deliveryDetails['address_line_1'] ?? ($deliveryDetails['address'] ?? null),
+                    'shipping_address_line_2' => $deliveryDetails['address_line_2'] ?? null,
+                    'shipping_suburb' => $deliveryDetails['suburb'] ?? null,
+                    'shipping_city' => $deliveryDetails['city'] ?? null,
+                    'shipping_state' => $deliveryDetails['state'] ?? 'N/A',
+                    'shipping_postcode' => $deliveryDetails['postcode'] ?? null,
+                    'shipping_country' => $country->name,
+                    'shipping_latitude' => $deliveryDetails['latitude'] ?? null,
+                    'shipping_longitude' => $deliveryDetails['longitude'] ?? null,
+                    'shipping_google_place_id' => $deliveryDetails['google_place_id'] ?? null,
 
-                // Determine variant: prefer provided variant_id / variantId, otherwise pick a sensible fallback
-                $variantId = $item['variant_id'] ?? $item['variantId'] ?? null;
-                if (is_string($variantId)) {
-                    $variantId = trim($variantId);
-                    if ($variantId === '' || strtolower($variantId) === 'null') {
-                        $variantId = null;
-                    }
-                }
+                    // delivery fulfillment
+                    'delivery_type' => $request->input('delivery_type') ?? ($this->deliveryEligibilityService->isDirectDeliveryPostcode($postcode) ? 'direct' : 'courier'),
+                    'delivery_slot_id' => $request->input('delivery_slot_id'),
+                    'delivery_date' => $request->input('delivery_date'),
+                    'delivery_notes' => $deliveryDetails['delivery_notes'] ?? ($request->input('notes') ?? null),
+                    'notes' => $deliveryDetails['delivery_notes'] ?? ($request->input('notes') ?? null),
 
-                $variantDetails = null;
-                $variant = null;
-
-                if ($variantId !== null) {
-                    $variant = \App\Models\ProductVariant::find($variantId);
-                }
-
-                if (!$variant && $product) {
-                    // Ensure variants are loaded and try to pick an in-stock variant first
-                    $product->loadMissing('variants');
-                    $variant = $product->variants->first(fn($v) => (int) $v->stock > 0) ?? $product->variants->first();
-                    if ($variant) {
-                        $variantId = $variant->id;
-                    }
-                }
-
-                if ($variant) {
-                    $variantDetails = $variant->name ?? $variant->sku ?? null;
-                }
-
-                $order->items()->create([
-                    'product_id' => $item['product_id'],
-                    'variant_id' => $variantId !== null ? $variantId : null,
-                    'product_name' => $product ? $product->name : 'Product #' . $item['product_id'],
-                    'variant_details' => $variantDetails,
-                    'quantity' => $item['quantity'],
-                    'price' => $item['price'],
-                    'line_total' => $item['price'] * $item['quantity'],
+                    // payment
+                    'shipping_method' => $shippingMethod,
+                    'payment_method' => 'stripe',
+                    'payment_status' => 'pending',
+                    'status' => 'pending_payment',
+                    'order_type' => 'order',
+                    
+                    // pricing totals
+                    'subtotal' => $subtotal,
+                    'shipping_cost' => $shippingCost,
+                    'coupon_code' => $couponCode,
+                    'discount' => $discount,
+                    'grand_total' => $grandTotal,
                 ]);
+
+                $order->update([
+                    'order_number' => 'TC-' . str_pad($order->id, 6, '0', STR_PAD_LEFT),
+                ]);
+
+                // Create order items
+                foreach ($request->input('cart') as $item) {
+                    $product = \App\Models\Product::find($item['product_id']);
+
+                    $variantId = $item['variant_id'] ?? $item['variantId'] ?? null;
+                    if (is_string($variantId)) {
+                        $variantId = trim($variantId);
+                        if ($variantId === '' || strtolower($variantId) === 'null') {
+                            $variantId = null;
+                        }
+                    }
+
+                    $variantDetails = null;
+                    $variant = null;
+
+                    if ($variantId !== null) {
+                        $variant = \App\Models\ProductVariant::find($variantId);
+                    }
+
+                    if (!$variant && $product) {
+                        $product->loadMissing('variants');
+                        $variant = $product->variants->first(fn($v) => (int) $v->stock > 0) ?? $product->variants->first();
+                        if ($variant) {
+                            $variantId = $variant->id;
+                        }
+                    }
+
+                    if ($variant) {
+                        $variantDetails = $variant->name ?? $variant->sku ?? null;
+                    }
+
+                    $order->items()->create([
+                        'product_id' => $item['product_id'],
+                        'variant_id' => $variantId !== null ? $variantId : null,
+                        'product_name' => $product ? $product->name : 'Product #' . $item['product_id'],
+                        'variant_details' => $variantDetails,
+                        'quantity' => $item['quantity'],
+                        'price' => $item['price'],
+                        'line_total' => $item['price'] * $item['quantity'],
+                    ]);
+                }
+
+                // Create Stripe Checkout Session
+                $checkoutUrl = $this->paymentGateway->createCheckoutSession($order);
+
+                DB::commit();
+
+                return response()->json([
+                    'valid' => true,
+                    'checkout_type' => 'payment',
+                    'order_id' => $order->id,
+                    'order_number' => $order->order_number,
+                    'checkout_url' => $checkoutUrl,
+                ]);
+            } catch (\Exception $e) {
+                DB::rollBack();
+                return response()->json(['error' => 'Failed to place order: ' . $e->getMessage()], 500);
             }
+        } else {
+            // Enquiry Flow
+            DB::beginTransaction();
+            try {
+                $enquiryNumber = 'ENQ-' . Str::upper(Str::random(10));
 
-            // $paymentIntent = $this->paymentGateway->createPaymentIntent($order);
-            $paymentIntent = null;
+                $order = Order::create([
+                    'order_number' => $enquiryNumber,
+                    'order_type' => 'enquiry',
+                    'customer_id' => $customerId,
+                    'customer_name' => $request->input('customer_name') ?? ($deliveryDetails['contact_name'] ?? $deliveryDetails['name'] ?? null),
+                    'customer_email' => $request->input('customer_email') ?? ($deliveryDetails['email'] ?? null),
+                    'customer_phone' => $request->input('customer_phone') ?? ($deliveryDetails['phone'] ?? null),
+                    
+                    // billing details
+                    'first_name' => explode(' ', ($deliveryDetails['contact_name'] ?? $deliveryDetails['name'] ?? 'Guest'), 2)[0] ?? 'Guest',
+                    'last_name' => explode(' ', ($deliveryDetails['contact_name'] ?? $deliveryDetails['name'] ?? 'Guest'), 2)[1] ?? '',
+                    'email' => $request->input('customer_email') ?? ($deliveryDetails['email'] ?? null),
+                    'phone' => $request->input('customer_phone') ?? ($deliveryDetails['phone'] ?? ''),
+                    'country' => $country->name,
+                    'address' => $deliveryDetails['address_line_1'] ?? ($deliveryDetails['address'] ?? ''),
+                    'apartment' => $deliveryDetails['address_line_2'] ?? null,
+                    'city' => $deliveryDetails['city'] ?? '',
+                    'state' => $deliveryDetails['state'] ?? 'N/A',
+                    'pin_code' => $deliveryDetails['postcode'] ?? '',
 
-            DB::commit();
+                    // shipping snapshot
+                    'shipping_name' => $deliveryDetails['contact_name'] ?? $deliveryDetails['name'] ?? null,
+                    'shipping_phone' => $deliveryDetails['phone'] ?? null,
+                    'shipping_address_line_1' => $deliveryDetails['address_line_1'] ?? ($deliveryDetails['address'] ?? null),
+                    'shipping_address_line_2' => $deliveryDetails['address_line_2'] ?? null,
+                    'shipping_suburb' => $deliveryDetails['suburb'] ?? null,
+                    'shipping_city' => $deliveryDetails['city'] ?? null,
+                    'shipping_state' => $deliveryDetails['state'] ?? 'N/A',
+                    'shipping_postcode' => $deliveryDetails['postcode'] ?? null,
+                    'shipping_country' => $country->name,
+                    'shipping_latitude' => $deliveryDetails['latitude'] ?? null,
+                    'shipping_longitude' => $deliveryDetails['longitude'] ?? null,
+                    'shipping_google_place_id' => $deliveryDetails['google_place_id'] ?? null,
 
-            return response()->json([
-                'valid' => true,
-                'order_id' => $order->id,
-                'order_number' => $order->order_number,
-                'payment_intent' => $paymentIntent,
-            ]);
-        } catch (\Exception $e) {
-            DB::rollBack();
-            return response()->json(['error' => 'Failed to place order: ' . $e->getMessage()], 500);
+                    // delivery fulfillment
+                    'delivery_type' => 'courier',
+                    'delivery_notes' => $deliveryDetails['delivery_notes'] ?? ($request->input('notes') ?? null),
+                    'notes' => $deliveryDetails['delivery_notes'] ?? ($request->input('notes') ?? null),
+
+                    // payment
+                    'shipping_method' => 'standard',
+                    'payment_method' => 'enquiry',
+                    'payment_status' => \App\Enums\PaymentStatus::NOT_REQUIRED,
+                    'status' => \App\Enums\OrderStatus::PENDING,
+                    
+                    // pricing totals
+                    'subtotal' => $subtotal,
+                    'shipping_cost' => 0.00,
+                    'coupon_code' => $couponCode,
+                    'discount' => $discount,
+                    'grand_total' => max(0, $subtotal - $discount),
+                ]);
+
+                // Create order items
+                foreach ($request->input('cart') as $item) {
+                    $product = \App\Models\Product::find($item['product_id']);
+
+                    $variantId = $item['variant_id'] ?? $item['variantId'] ?? null;
+                    if (is_string($variantId)) {
+                        $variantId = trim($variantId);
+                        if ($variantId === '' || strtolower($variantId) === 'null') {
+                            $variantId = null;
+                        }
+                    }
+
+                    $variantDetails = null;
+                    if ($variantId) {
+                        $variant = \App\Models\ProductVariant::find($variantId);
+                        if ($variant) {
+                            $variantDetails = $variant->name ?? $variant->sku ?? null;
+                        }
+                    }
+                    
+                    $order->items()->create([
+                        'product_id' => $item['product_id'],
+                        'variant_id' => $variantId !== null ? $variantId : null,
+                        'product_name' => $product ? $product->name : 'Product #' . $item['product_id'],
+                        'variant_details' => $variantDetails,
+                        'quantity' => $item['quantity'],
+                        'price' => (float) $item['price'],
+                        'line_total' => (float) ($item['price'] * $item['quantity']),
+                    ]);
+                }
+
+                // Send Mail to Business
+                $adminEmail = env('ORDER_ENQUIRY_EMAIL', 'admin@indinest.com');
+                try {
+                    Mail::to($adminEmail)->send(new OrderEnquiryMail($order));
+                } catch (\Exception $mailEx) {
+                    Log::error('Failed to send order enquiry email: ' . $mailEx->getMessage());
+                }
+
+                DB::commit();
+
+                return response()->json([
+                    'valid' => true,
+                    'checkout_type' => 'enquiry',
+                    'enquiry_id' => $order->id,
+                    'enquiry_number' => $order->order_number,
+                ]);
+            } catch (\Exception $e) {
+                DB::rollBack();
+                return response()->json(['error' => 'Failed to submit enquiry: ' . $e->getMessage()], 500);
+            }
         }
     }
 

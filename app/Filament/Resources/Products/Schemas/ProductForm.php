@@ -85,11 +85,11 @@ class ProductForm
                                 $set('slug', Str::slug($state))
                             ),
 
-                        MultiSelect::make('collections')
+                        /*MultiSelect::make('collections')
                             ->label('Collections')
                             ->relationship('collections', 'name')
                             ->searchable()
-                            ->preload(),
+                            ->preload(), */
 
                         TextInput::make('sku')
                             ->label('Product SKU'),
@@ -234,14 +234,14 @@ class ProductForm
                 ->schema([
 
                     RichEditor::make('key_features')
-                        ->label('Key Features')
+                        ->label('Features')
                         ->columnSpanFull(),
 
                     RichEditor::make('description')
                         ->label('Product Description')
                         ->columnSpanFull(),
 
-                    RichEditor::make('style_fit_tips')
+                    /*RichEditor::make('style_fit_tips')
                         ->label('Style and Fit Tips')
                         ->columnSpanFull(),
 
@@ -251,7 +251,7 @@ class ProductForm
 
                     RichEditor::make('faq')
                         ->label('FAQ')
-                        ->columnSpanFull(),
+                        ->columnSpanFull(), */
 
                 ])->columnSpanFull(),
 

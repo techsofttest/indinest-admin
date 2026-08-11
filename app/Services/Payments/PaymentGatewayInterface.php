@@ -23,6 +23,14 @@ interface PaymentGatewayInterface
     public function retrievePaymentIntent(string $paymentIntentId): array;
 
     /**
+     * Create a new Stripe Checkout Session for the given order and return redirect URL.
+     *
+     * @param Order $order
+     * @return string
+     */
+    public function createCheckoutSession(Order $order): string;
+
+    /**
      * Handle webhook event and return true if successfully processed.
      *
      * @param string $payload

@@ -115,6 +115,9 @@ class StripePaymentService implements PaymentGatewayInterface
         try {
             DB::transaction(function () use ($event, $eventType, $eventId, $webhookLog) {
                 switch ($eventType) {
+                    case 'checkout.session.completed':
+                        $this->handleCheckoutSessionCompleted($event->data->object, $eventId);
+                        break;
                     case 'payment_intent.succeeded':
                         $this->handlePaymentIntentSucceeded($event->data->object, $eventId);
                         break;
@@ -340,5 +343,140 @@ class StripePaymentService implements PaymentGatewayInterface
             'payment_status' => $isFullRefund ? 'refunded' : 'partially_refunded',
             'status' => $isFullRefund ? 'refunded' : $order->status,
         ]);
+    }
+
+    public function createCheckoutSession(Order $order): string
+    {
+        $amount = (int) round($order->grand_total * 100);
+        $appUrl = rtrim(env('NEXT_PUBLIC_APP_URL', 'http://localhost:3000'), '/');
+
+        $successUrl = $appUrl . '/checkout/success?order_id=' . $order->id . '&session_id={CHECKOUT_SESSION_ID}';
+        $cancelUrl = $appUrl . '/checkout?order_id=' . $order->id . '&cancel=true';
+
+        $session = $this->stripe->checkout->sessions->create([
+            'payment_method_types' => ['card'],
+            'line_items' => [[
+                'price_data' => [
+                    'currency' => strtolower($order->payment_currency ?: $this->currency),
+                    'product_data' => [
+                        'name' => 'Order #' . $order->order_number,
+                    ],
+                    'unit_amount' => $amount,
+                ],
+                'quantity' => 1,
+            ]],
+            'mode' => 'payment',
+            'success_url' => $successUrl,
+            'cancel_url' => $cancelUrl,
+            'customer_email' => $order->customer_email,
+            'metadata' => [
+                'order_id' => $order->id,
+                'order_number' => $order->order_number,
+            ],
+        ]);
+
+        $order->update([
+            'stripe_checkout_session_id' => $session->id,
+            'payment_status' => 'pending',
+        ]);
+
+        return $session->url;
+    }
+
+    protected function handleCheckoutSessionCompleted($session, string $eventId): void
+    {
+        $orderId = $session->metadata->order_id ?? null;
+        $order = null;
+
+        if ($orderId) {
+            $order = Order::with('items')->find($orderId);
+        }
+
+        if (!$order) {
+            $order = Order::with('items')->where('stripe_checkout_session_id', $session->id)->first();
+        }
+
+        if (!$order) {
+            throw new \Exception("Order not found for Stripe Checkout Session {$session->id}");
+        }
+
+        if ($order->payment_status === 'paid') {
+            Log::info("Order {$order->order_number} is already paid.");
+            return;
+        }
+
+        $paymentIntentId = $session->payment_intent ?? null;
+        $chargeId = null;
+
+        if ($paymentIntentId && !empty($this->stripe)) {
+            try {
+                $pi = $this->stripe->paymentIntents->retrieve($paymentIntentId);
+                $chargeId = $pi->latest_charge ?? null;
+            } catch (\Exception $e) {
+                Log::error("Failed to retrieve PaymentIntent from Stripe: " . $e->getMessage());
+            }
+        }
+
+        // Create transaction record
+        PaymentTransaction::create([
+            'order_id' => $order->id,
+            'gateway' => 'stripe',
+            'transaction_type' => 'checkout.session.completed',
+            'payment_intent' => $paymentIntentId,
+            'charge_id' => $chargeId,
+            'event_id' => $eventId,
+            'status' => 'succeeded',
+            'amount' => $session->amount_total / 100,
+            'currency' => strtoupper($session->currency),
+            'response' => (array) $session,
+        ]);
+
+        // Reduce inventory
+        try {
+            foreach ($order->items as $item) {
+                if ($item->variant_id) {
+                    $variant = ProductVariant::find($item->variant_id);
+                    if ($variant) {
+                        $oldStock = $variant->stock;
+                        $variant->decrement('stock', $item->quantity);
+                        Log::info("Stock updated for variant {$item->variant_id}: reduced from {$oldStock} to {$variant->stock} by quantity {$item->quantity}");
+                    }
+                }
+            }
+        } catch (\Exception $e) {
+            Log::error("Error reducing inventory for order {$order->id}: " . $e->getMessage());
+            throw $e;
+        }
+
+        // Update Order
+        $order->update([
+            'payment_status' => 'paid',
+            'status' => 'confirmed',
+            'stripe_payment_intent' => $paymentIntentId,
+            'stripe_charge_id' => $chargeId,
+            'paid_at' => now(),
+            'payment_metadata' => array_merge((array) $order->payment_metadata, [
+                'checkout_session_id' => $session->id,
+                'checkout_session_completed_event_id' => $eventId,
+            ]),
+        ]);
+
+        // Coupon Usage
+        if ($order->coupon_code) {
+            $coupon = \App\Models\Coupon::where('coupon_code', $order->coupon_code)->first();
+            if ($coupon) {
+                $alreadyLogged = \App\Models\CouponUsage::where('order_id', $order->id)->exists();
+                if (!$alreadyLogged) {
+                    \App\Models\CouponUsage::create([
+                        'coupon_id' => $coupon->id,
+                        'customer_id' => $order->customer_id,
+                        'order_id' => $order->id,
+                        'discount_amount' => $order->discount,
+                    ]);
+                }
+            }
+        }
+
+        Log::info("Order {$order->order_number} successfully paid via Stripe Checkout Session.");
     }
 }

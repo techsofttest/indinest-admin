@@ -15,7 +15,7 @@ class CustomerDashboardController extends Controller
 {
     private function getAuthenticatedCustomer(Request $request): ?Customer
     {
-        $user = Auth::guard('customer')->user();
+        $user = Auth::guard('sanctum')->user() ?: Auth::guard('customer')->user();
 
         return $user instanceof Customer ? $user : null;
     }
@@ -108,6 +108,41 @@ class CustomerDashboardController extends Controller
         ]);
     }
 
+    public function orders(Request $request): JsonResponse
+    {
+        $user = $this->getAuthenticatedCustomer($request);
+
+        if (!($user instanceof Customer)) {
+            return response()->json(['error' => 'Unauthenticated'], 401);
+        }
+
+        $orders = Order::with(['items.product.brand'])
+            ->where('customer_id', $user->id)
+            ->orderByDesc('created_at')
+            ->get();
+
+        return response()->json([
+            'orders' => $orders->map(fn (Order $o) => [
+                'id' => $o->id,
+                'order_number' => $o->order_number,
+                'order_date' => optional($o->created_at)->format('F j, Y'),
+                'status' => $o->status->value ?? $o->status,
+                'grand_total' => (float)$o->grand_total,
+                'payment_status' => $o->payment_status->value ?? $o->payment_status,
+                'currency' => $o->payment_currency ?? 'GBP',
+                'items' => $o->items->map(fn ($item) => [
+                    'id' => $item->id,
+                    'name' => $item->product_name,
+                    'price' => (float)$item->price,
+                    'quantity' => $item->quantity,
+                    'weight' => $item->variant_details ?? '',
+                    'image' => $item->product && $item->product->featured_image ? asset('storage/' . $item->product->featured_image) : null,
+                    'brand' => $item->product && $item->product->brand ? $item->product->brand->name : 'General',
+                ])
+            ])
+        ]);
+    }
+
     public function showOrder(Request $request, $id): JsonResponse
     {
         $user = $this->getAuthenticatedCustomer($request);
@@ -137,6 +172,7 @@ class CustomerDashboardController extends Controller
             'status' => $order->status->value ?? $order->status,
             'payment_status' => $order->payment_status->value ?? $order->payment_status,
             'payment_method' => $order->payment_method,
+            'currency' => $order->payment_currency ?? 'GBP',
             'subtotal' => (float)$order->subtotal,
             'shipping_cost' => (float)$order->shipping_cost,
             'discount' => (float)$order->discount,
@@ -149,6 +185,7 @@ class CustomerDashboardController extends Controller
                 'type' => 'Delivery Address',
                 'street' => trim($order->address . ' ' . $order->apartment),
                 'suburb' => trim($order->city . ', ' . $order->state . ' ' . $order->pin_code),
+                'country' => $order->country,
                 'phone' => $order->phone,
             ],
             'items' => $order->items->map(fn($item) => [

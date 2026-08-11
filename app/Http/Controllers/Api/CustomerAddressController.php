@@ -18,7 +18,7 @@ class CustomerAddressController extends Controller
      */
     private function getAuthenticatedCustomer(Request $request): ?Customer
     {
-        $user = Auth::guard('customer')->user();
+        $user = Auth::guard('sanctum')->user() ?: Auth::guard('customer')->user();
 
         return $user instanceof Customer ? $user : null;
     }
@@ -88,15 +88,23 @@ class CustomerAddressController extends Controller
             return response()->json(['message' => 'Invalid email or password'], 422);
         }
 
-        Auth::guard('customer')->login($customer);
-        session()->put('customer_id', $customer->id);
+        if (!$customer->hasVerifiedEmail()) {
+            return response()->json([
+                'message' => 'Please verify your email address to complete your account creation. Check your inbox for the verification link.',
+                'email_not_verified' => true,
+            ], 403);
+        }
+
+        // Generate Sanctum token
+        $token = $customer->createToken('auth_token')->plainTextToken;
 
         return response()->json([
             'id' => $customer->id,
             'name' => $customer->name,
             'email' => $customer->email,
             'phone' => $customer->phone,
-            'isLoggedIn' => true
+            'isLoggedIn' => true,
+            'token' => $token,
         ]);
     }
 
@@ -120,16 +128,25 @@ class CustomerAddressController extends Controller
             'status' => 1,
         ]);
 
-        Auth::guard('customer')->login($customer);
-        session()->put('customer_id', $customer->id);
+        event(new \App\Events\CustomerRegistered($customer));
 
         return response()->json([
-            'id' => $customer->id,
-            'name' => $customer->name,
-            'email' => $customer->email,
-            'phone' => $customer->phone,
-            'isLoggedIn' => true
-        ]);
+            'message' => 'Account created successfully! Please check your email to verify your account before logging in.',
+            'isLoggedIn' => false,
+        ], 201);
+    }
+
+    /**
+     * Customer Logout
+     */
+    public function logout(Request $request): JsonResponse
+    {
+        $customer = $this->getAuthenticatedCustomer($request);
+        if ($customer) {
+            $customer->currentAccessToken()->delete();
+        }
+
+        return response()->json(['message' => 'Logged out successfully']);
     }
 
     /**

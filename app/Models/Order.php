@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\Model;
 class Order extends Model
 {
     protected $fillable = [
-        'order_number', 'user_id', 'customer_id', 'customer_name', 'customer_email', 'customer_phone',
+        'order_number', 'order_type', 'user_id', 'customer_id', 'customer_name', 'customer_email', 'customer_phone',
         'first_name', 'last_name', 'email', 'phone',
         'country', 'address', 'apartment', 'city', 'state', 'pin_code', 'billing_details',
         'shipping_method', 'payment_method', 'payment_status', 'status',
@@ -19,7 +19,7 @@ class Order extends Model
         'shipping_latitude', 'shipping_longitude', 'shipping_google_place_id', 'delivery_type', 'warehouse_id',
         'delivery_slot_id', 'delivery_date', 'delivery_notes', 'delivery_distance_km',
         'payment_amount', 'payment_currency', 'stripe_payment_intent', 'stripe_charge_id', 'paid_at', 'payment_failure_reason', 'payment_metadata',
-        'assigned_staff_id', 'assigned_at', 'assigned_by'
+        'stripe_checkout_session_id', 'assigned_staff_id', 'assigned_at', 'assigned_by'
     ];
     
     protected $casts = [
@@ -59,6 +59,17 @@ class Order extends Model
     public function assignedBy()
     {
         return $this->belongsTo(User::class, 'assigned_by');
+    }
+
+    public function markAsDelivered()
+    {
+        if ($this->order_type === 'order' && $this->payment_status !== \App\Enums\PaymentStatus::PAID) {
+            throw new \Exception('Payment is required before marking as delivered.');
+        }
+
+        $this->update([
+            'status' => \App\Enums\OrderStatus::DELIVERED,
+        ]);
     }
 }
 

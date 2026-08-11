@@ -12,4 +12,5 @@ enum PaymentStatus: string
     case CANCELLED = 'cancelled';
     case REFUNDED = 'refunded';
     case PARTIALLY_REFUNDED = 'partially_refunded';
+    case NOT_REQUIRED = 'not_required';
 }

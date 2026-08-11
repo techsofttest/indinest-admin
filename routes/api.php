@@ -9,6 +9,9 @@ use App\Http\Controllers\Api\CustomerAddressController;
 use App\Http\Controllers\Api\CouponController;
 use App\Http\Controllers\Api\CmsController;
 use App\Http\Controllers\Api\CustomerWishlistController;
+use App\Http\Controllers\Api\CustomerVerificationController;
+use App\Http\Controllers\Api\CustomerPasswordResetController;
+use App\Http\Controllers\Api\CountryController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/login', function () {
@@ -16,6 +19,8 @@ Route::get('/login', function () {
 })->name('login');
 
 Route::get('/storefront/home', [StorefrontController::class, 'home']);
+Route::get('/storefront/lookbooks', [StorefrontController::class, 'lookbooks']);
+Route::get('/countries', [CountryController::class, 'index']);
 Route::get('/storefront/header', [StorefrontController::class, 'header']);
 Route::get('/storefront/categories', [StorefrontController::class, 'categories']);
 Route::get('/storefront/featured-categories', [StorefrontController::class, 'featuredCategories']);
@@ -37,6 +42,15 @@ Route::post('/checkout/retry', [CheckoutController::class, 'retry'])->middleware
 Route::post('/checkout/payment-status', [CheckoutController::class, 'paymentStatus'])->middleware('web');
 Route::post('/webhooks/stripe', [\App\Http\Controllers\Api\StripeWebhookController::class, 'handle']);
 
+// Customer Auth API endpoints (Public)
+Route::post('/customer/login', [CustomerAddressController::class, 'login']);
+Route::post('/customer/register', [CustomerAddressController::class, 'register']);
+Route::post('/forgot-password', [CustomerPasswordResetController::class, 'sendLink']);
+Route::post('/reset-password', [CustomerPasswordResetController::class, 'reset']);
+Route::get('/email/verify/{id}/{hash}', [CustomerVerificationController::class, 'verify'])
+    ->middleware('signed')
+    ->name('customer.verification.verify');
+
 Route::middleware(['web'])->group(function () {
     Route::get('/cart', [CartController::class, 'index']);
     Route::post('/cart', [CartController::class, 'store']);
@@ -44,8 +58,6 @@ Route::middleware(['web'])->group(function () {
     Route::put('/cart/{id}', [CartController::class, 'update']);
     Route::delete('/cart/{id}', [CartController::class, 'destroy']);
     Route::post('/cart/clear', [CartController::class, 'clear']);
-    Route::post('/customer/login', [CustomerAddressController::class, 'login']);
-    Route::post('/customer/register', [CustomerAddressController::class, 'register']);
     
     Route::get('/customer/debug-session', function (\Illuminate\Http\Request $request) {
         return response()->json([
@@ -58,7 +70,9 @@ Route::middleware(['web'])->group(function () {
     });
 });
 
-Route::middleware(['web', 'auth:customer'])->group(function () {
+// Protected Customer Routes (Sanctum Authenticated)
+Route::middleware(['auth:sanctum'])->group(function () {
+    Route::post('/customer/logout', [CustomerAddressController::class, 'logout']);
     Route::get('/me', [CustomerDashboardController::class, 'me']);
     Route::get('/customer/dashboard-summary', [CustomerDashboardController::class, 'dashboardSummary']);
     
@@ -69,6 +83,7 @@ Route::middleware(['web', 'auth:customer'])->group(function () {
     Route::post('/customer/addresses/{id}/default-shipping', [CustomerAddressController::class, 'setDefaultShipping']);
     Route::post('/customer/addresses/{id}/default-billing', [CustomerAddressController::class, 'setDefaultBilling']);
     Route::post('/customer/change-password', [CustomerDashboardController::class, 'changePassword']);
+    Route::get('/customer/orders', [CustomerDashboardController::class, 'orders']);
     Route::get('/customer/orders/{id}', [CustomerDashboardController::class, 'showOrder']);
 
     // Wishlist Routes
