@@ -195,20 +195,23 @@ class StripePaymentService implements PaymentGatewayInterface
             ->where('transaction_type', TransactionType::PAYMENT_INTENT_SUCCEEDED)
             ->first();
 
-        if (!$existingTx) {
-            PaymentTransaction::create([
-                'order_id' => $order->id,
-                'gateway' => 'stripe',
-                'transaction_type' => TransactionType::PAYMENT_INTENT_SUCCEEDED,
-                'payment_intent' => $paymentIntent->id,
-                'charge_id' => $chargeId,
-                'event_id' => $eventId,
-                'status' => TransactionStatus::SUCCEEDED,
-                'amount' => $paymentIntent->amount / 100,
-                'currency' => strtoupper($paymentIntent->currency),
-                'response' => (array) $paymentIntent,
-            ]);
+        if ($existingTx) {
+            Log::info("PaymentTransaction already exists for order {$order->id}. Skipping inventory reduction.");
+            return;
         }
+
+        PaymentTransaction::create([
+            'order_id' => $order->id,
+            'gateway' => 'stripe',
+            'transaction_type' => TransactionType::PAYMENT_INTENT_SUCCEEDED,
+            'payment_intent' => $paymentIntent->id,
+            'charge_id' => $chargeId,
+            'event_id' => $eventId,
+            'status' => TransactionStatus::SUCCEEDED,
+            'amount' => $paymentIntent->amount / 100,
+            'currency' => strtoupper($paymentIntent->currency),
+            'response' => (array) $paymentIntent,
+        ]);
 
         // Reduce inventory inside the transaction (Phase 10: exclusive to webhook processing)
         try {
@@ -443,20 +446,23 @@ class StripePaymentService implements PaymentGatewayInterface
             ->where('transaction_type', TransactionType::PAYMENT_INTENT_SUCCEEDED)
             ->first();
 
-        if (!$existingTx) {
-            PaymentTransaction::create([
-                'order_id' => $order->id,
-                'gateway' => 'stripe',
-                'transaction_type' => TransactionType::PAYMENT_INTENT_SUCCEEDED,
-                'payment_intent' => $paymentIntentId,
-                'charge_id' => $chargeId,
-                'event_id' => $eventId,
-                'status' => TransactionStatus::SUCCEEDED,
-                'amount' => $session->amount_total / 100,
-                'currency' => strtoupper($session->currency),
-                'response' => (array) $session,
-            ]);
+        if ($existingTx) {
+            Log::info("PaymentTransaction already exists for order {$order->id}. Skipping inventory reduction.");
+            return;
         }
+
+        PaymentTransaction::create([
+            'order_id' => $order->id,
+            'gateway' => 'stripe',
+            'transaction_type' => TransactionType::PAYMENT_INTENT_SUCCEEDED,
+            'payment_intent' => $paymentIntentId,
+            'charge_id' => $chargeId,
+            'event_id' => $eventId,
+            'status' => TransactionStatus::SUCCEEDED,
+            'amount' => $session->amount_total / 100,
+            'currency' => strtoupper($session->currency),
+            'response' => (array) $session,
+        ]);
 
         // Reduce inventory
         try {
