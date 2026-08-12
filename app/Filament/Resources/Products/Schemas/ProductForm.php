@@ -146,7 +146,8 @@ class ProductForm
                                 TextInput::make('stock')
                                     ->label('Stock')
                                     ->numeric()
-                                    ->default(0),
+                                    ->default(0)
+                                    ->minValue(0),
 
                                 TextInput::make('tax_percentage')
                                     ->label('Tax %')
@@ -165,13 +166,15 @@ class ProductForm
                                             $sellingPrice = $priceAfterTax * (1 + ($margin / 100));
                                             $set('selling_price', round($sellingPrice, 2));
                                         }
-                                    }),
+                                    })
+                                    ->hidden(),
 
                                 TextInput::make('buying_price')
                                     ->label('MRP')
                                     ->numeric()
                                     ->default(0)
                                     ->prefix('£')
+                                    ->minValue(1)
                                     ->live(onBlur: true)
                                     ->afterStateUpdated(function ($state, $get, $set) {
                                         $margin = floatval($get('margin'));
@@ -185,7 +188,8 @@ class ProductForm
                                     ->label('Selling Price')
                                     ->numeric()
                                     ->default(0)
-                                    ->prefix('£'),
+                                    ->prefix('£')
+                                    ->minValue(1),
                             ]),
                         ])
                         ->addActionLabel('Add Variant')

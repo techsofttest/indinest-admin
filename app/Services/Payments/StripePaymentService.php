@@ -170,12 +170,12 @@ class StripePaymentService implements PaymentGatewayInterface
         $order = null;
 
         if ($orderId) {
-            $order = Order::with('items')->find($orderId);
+            $order = Order::with('items')->lockForUpdate()->find($orderId);
         }
 
         if (!$order) {
             // Find by payment intent ID fallback
-            $order = Order::with('items')->where('stripe_payment_intent', $paymentIntent->id)->first();
+            $order = Order::with('items')->where('stripe_payment_intent', $paymentIntent->id)->lockForUpdate()->first();
         }
 
         if (!$order) {
@@ -410,11 +410,11 @@ class StripePaymentService implements PaymentGatewayInterface
         $order = null;
 
         if ($orderId) {
-            $order = Order::with('items')->find($orderId);
+            $order = Order::with('items')->lockForUpdate()->find($orderId);
         }
 
         if (!$order) {
-            $order = Order::with('items')->where('stripe_checkout_session_id', $session->id)->first();
+            $order = Order::with('items')->where('stripe_checkout_session_id', $session->id)->lockForUpdate()->first();
         }
 
         if (!$order) {
