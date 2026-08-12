@@ -55,4 +55,8 @@ return [
         'webhook_tolerance' => env('STRIPE_WEBHOOK_TOLERANCE', 300),
     ],
 
+    'frontend' => [
+        'url' => env('FRONTEND_URL', 'http://localhost:3000'),
+    ],
+
 ];
