@@ -14,7 +14,7 @@ class CustomerWishlistController extends Controller
 {
     private function getAuthenticatedCustomer(Request $request): ?Customer
     {
-        $user = Auth::guard('customer')->user();
+        $user = Auth::guard('sanctum')->user() ?: Auth::guard('customer')->user();
         return $user instanceof Customer ? $user : null;
     }
 
