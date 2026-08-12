@@ -8,8 +8,12 @@ use App\Models\StripeWebhookLog;
 use App\Models\ProductVariant;
 use App\Enums\TransactionType;
 use App\Enums\TransactionStatus;
+use App\Mail\OrderConfirmationMail;
+use App\Mail\AdminOrderNotificationMail;
+use App\Services\MailService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 use Stripe\StripeClient;
 use Stripe\Webhook;
 use Stripe\Exception\SignatureVerificationException;
@@ -501,5 +505,33 @@ class StripePaymentService implements PaymentGatewayInterface
         }
 
         Log::info("Order {$order->order_number} successfully paid via Stripe Checkout Session.");
+
+        // Send order confirmation emails
+        $order->loadMissing('items');
+
+        // 1. Customer confirmation email
+        $customerEmail = $order->customer_email ?? $order->email ?? null;
+        if ($customerEmail) {
+            try {
+                Mail::to($customerEmail)->send(new OrderConfirmationMail($order));
+                Log::info("Order confirmation email sent to customer: {$customerEmail} for order {$order->order_number}");
+            } catch (\Throwable $e) {
+                Log::error("Failed to send order confirmation email to customer for order {$order->order_number}: " . $e->getMessage());
+            }
+        }
+
+        // 2. Admin notification email
+        $mailService = app(MailService::class);
+        $adminRecipients = $mailService->adminRecipients();
+        if (!empty($adminRecipients)) {
+            try {
+                $mailService->sendToMany($adminRecipients, new AdminOrderNotificationMail($order));
+                Log::info("Admin order notification sent to: " . implode(', ', $adminRecipients) . " for order {$order->order_number}");
+            } catch (\Throwable $e) {
+                Log::error("Failed to send admin order notification for order {$order->order_number}: " . $e->getMessage());
+            }
+        } else {
+            Log::warning("No admin recipients configured (ADMIN_EMAIL) — admin order notification skipped for order {$order->order_number}");
+        }
     }
 }
