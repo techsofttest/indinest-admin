@@ -28,6 +28,8 @@ class FaqResource extends Resource
 
     protected static ?string $recordTitleAttribute = 'question';
 
+    protected static bool $shouldRegisterNavigation = false;
+
     public static function form(Schema $schema): Schema
     {
         return $schema

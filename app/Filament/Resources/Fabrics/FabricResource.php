@@ -9,6 +9,7 @@ use App\Filament\Resources\Fabrics\Schemas\FabricForm;
 use App\Filament\Resources\Fabrics\Tables\FabricsTable;
 use App\Models\Fabric;
 use BackedEnum;
+use UnitEnum;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
@@ -21,6 +22,8 @@ class FabricResource extends Resource
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedRectangleStack;
 
     protected static ?string $recordTitleAttribute = 'name';
+
+    protected static string|UnitEnum|null $navigationGroup = 'Master data';
 
     public static function form(Schema $schema): Schema
     {

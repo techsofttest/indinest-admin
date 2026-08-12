@@ -200,7 +200,7 @@ class CheckoutController extends Controller
                 ]);
 
                 $order->update([
-                    'order_number' => 'TC-' . str_pad($order->id, 6, '0', STR_PAD_LEFT),
+                    'order_number' => 'IN' . str_pad($order->id, 6, '0', STR_PAD_LEFT),
                 ]);
 
                 // Create order items

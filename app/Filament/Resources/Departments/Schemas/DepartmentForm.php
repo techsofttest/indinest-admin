@@ -41,7 +41,8 @@ class DepartmentForm
                             FileUpload::make('image')
                                 ->label('Image')
                                 ->image()
-                                ->disk('public'),
+                                ->disk('public')
+                                ->saveUploadedFileUsing(fn (\Livewire\Features\SupportFileUploads\TemporaryUploadedFile $file) => \App\Traits\ProcessesImageUploads::convertToWebpAndCompress($file, 'departments')),
 
                             Textarea::make('description')
                                 ->label('Description')

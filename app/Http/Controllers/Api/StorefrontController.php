@@ -3,7 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Models\Announcement;
+
 use App\Models\Brand;
 use App\Models\Advertisement;
 use App\Models\Banner;
@@ -647,8 +647,17 @@ class StorefrontController extends Controller
             ->take(15)
             ->get();
 
-        $homeAdvertisement = Advertisement::query()
-            ->find(1);
+        $advertisements = Advertisement::query()
+            ->where('is_active', true)
+            ->orderBy('sort_order')
+            ->get()
+            ->map(fn (Advertisement $ad) => [
+                'id' => $ad->id,
+                'name' => $ad->name,
+                'title' => $ad->title,
+                'banner_url' => $this->assetUrl($ad->banner),
+                'url' => $ad->url,
+            ])->values();
 
         $banners = Banner::query()
             ->where('is_active', true)
@@ -705,22 +714,11 @@ class StorefrontController extends Controller
             })
             ->values();
 
-        $announcements = Announcement::query()
-            ->orderBy('sort_order')
-            ->get()
-            ->map(fn (Announcement $announcement) => [
-                'id' => $announcement->id,
-                'text' => $announcement->text,
-            ])->values();
+        $announcements = collect();
 
         return response()->json([
-            'home_advertisement' => $homeAdvertisement ? [
-                'id' => $homeAdvertisement->id,
-                'name' => $homeAdvertisement->name,
-                'title' => $homeAdvertisement->title,
-                'banner_url' => $this->assetUrl($homeAdvertisement->banner),
-                'url' => $homeAdvertisement->url,
-            ] : null,
+            'home_advertisement' => $advertisements->first(),
+            'advertisements' => $advertisements,
             'banners' => $banners,
             'products' => $products->map(fn (Product $product) => $this->productPayload($product))->values(),
             'brands' => $brands,

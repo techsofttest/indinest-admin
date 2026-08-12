@@ -203,8 +203,7 @@ class ProductForm
                         ->label('Featured Image')
                         ->disk('public')
                         ->image()
-                        ->preserveFilenames(),
-
+                        ->saveUploadedFileUsing(fn (\Livewire\Features\SupportFileUploads\TemporaryUploadedFile $file) => \App\Traits\ProcessesImageUploads::convertToWebpAndCompress($file, 'products')),
                 ])->columnSpanFull(),
 
             /* ================= ADDITIONAL IMAGES ================= */

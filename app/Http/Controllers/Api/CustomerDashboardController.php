@@ -48,7 +48,7 @@ class CustomerDashboardController extends Controller
 
         $validated = $request->validate([
             'current_password' => ['required', 'string'],
-            'new_password' => ['required', 'string', 'min:8', 'confirmed'],
+            'new_password' => ['required', 'string', 'min:6', 'confirmed'],
         ]);
 
         if (!Hash::check($validated['current_password'], $user->password)) {

@@ -67,7 +67,8 @@ class CategoryForm
 
                         FileUpload::make('image')
                             ->image()
-                            ->disk('public'),
+                            ->disk('public')
+                            ->saveUploadedFileUsing(fn (\Livewire\Features\SupportFileUploads\TemporaryUploadedFile $file) => \App\Traits\ProcessesImageUploads::convertToWebpAndCompress($file, 'categories')),
                         
                     ])->columnSpanFull(),
 

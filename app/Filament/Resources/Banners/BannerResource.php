@@ -25,6 +25,8 @@ class BannerResource extends Resource
 
     protected static string|UnitEnum|null $navigationGroup = 'Content Management';
 
+    protected static bool $shouldRegisterNavigation = false;
+
     public static function form(Schema $schema): Schema
     {
         return BannerForm::configure($schema);

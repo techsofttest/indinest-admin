@@ -46,6 +46,7 @@ class LookbookForm
                             ->label('Model Image')
                             ->image()
                             ->disk('public')
+                            ->saveUploadedFileUsing(fn (\Livewire\Features\SupportFileUploads\TemporaryUploadedFile $file) => \App\Traits\ProcessesImageUploads::convertToWebpAndCompress($file, 'lookbooks'))
                             ->required(),
 
                         TextInput::make('model_alt')
@@ -60,8 +61,9 @@ class LookbookForm
                             ->schema([
                                 Select::make('product_id')
                                     ->label('Product')
-                                    ->relationship('product', 'name')
+                                    ->relationship('product', 'name', modifyQueryUsing: fn ($query) => $query->with('category'))
                                     ->searchable()
+                                    ->preload()
                                     ->getOptionLabelFromRecordUsing(fn ($record) => "{$record->name} (SKU: {$record->sku}) - " . ($record->category ? $record->category->name : 'No Category'))
                                     ->disableOptionsWhenSelectedInSiblingRepeaterItems()
                                     ->required(),
