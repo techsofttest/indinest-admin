@@ -68,6 +68,7 @@ class StorefrontController extends Controller
             'review_count' => $reviews->count(),
             'variants' => $inStockVariants->map(fn ($variant) => $this->variantPayload($variant))->values(),
             'description' => $product->description,
+            'size_chart' => $product->size_chart,
             'key_features' => $product->key_features,
             'style_fit_tips' => $product->style_fit_tips,
             'shipping_returns' => $product->shipping_returns,

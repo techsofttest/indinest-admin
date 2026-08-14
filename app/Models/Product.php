@@ -18,6 +18,7 @@ class Product extends Model
         'category_id',
         'key_features',
         'description',
+        'size_chart',
         'style_fit_tips',
         'shipping_returns',
         'faq',

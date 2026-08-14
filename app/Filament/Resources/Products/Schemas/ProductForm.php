@@ -256,6 +256,10 @@ class ProductForm
                         ->label('Product Description')
                         ->columnSpanFull(),
 
+                    RichEditor::make('size_chart')
+                        ->label('Size Chart')
+                        ->columnSpanFull(),
+
                     /*RichEditor::make('style_fit_tips')
                         ->label('Style and Fit Tips')
                         ->columnSpanFull(),
