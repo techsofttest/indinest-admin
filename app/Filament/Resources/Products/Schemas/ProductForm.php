@@ -76,6 +76,15 @@ class ProductForm
                                 }
                             }),
 
+                        TextInput::make('sku')
+                            ->label('Product SKU')
+                            ->required()
+                            ->unique(table: 'products', column: 'sku', ignoreRecord: true)
+                            ->live(onBlur: true)
+                            ->afterStateUpdated(function ($livewire, $component) {
+                                $livewire->validateOnly($component->getStatePath());
+                            }),
+
                         TextInput::make('name')
                             ->label('Product Name')
                             ->required()
@@ -90,9 +99,6 @@ class ProductForm
                             ->relationship('collections', 'name')
                             ->searchable()
                             ->preload(), */
-
-                        /*TextInput::make('sku')
-                            ->label('Product SKU'),*/
 
                         TextInput::make('slug')
                             ->hidden()
@@ -136,8 +142,14 @@ class ProductForm
                         ->relationship()
                         ->schema([
                             Grid::make(4)->schema([
-                                /*TextInput::make('sku')
-                                    ->label('Variant SKU'),*/
+                                TextInput::make('sku')
+                                    ->label('Variant SKU')
+                                    ->required()
+                                    ->unique(table: 'product_variants', column: 'sku', ignoreRecord: true)
+                                    ->live(onBlur: true)
+                                    ->afterStateUpdated(function ($livewire, $component) {
+                                        $livewire->validateOnly($component->getStatePath());
+                                    }),
 
                                 TextInput::make('size')
                                     ->label('Variant Name')
