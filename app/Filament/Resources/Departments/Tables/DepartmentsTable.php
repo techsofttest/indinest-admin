@@ -28,15 +28,6 @@ class DepartmentsTable
                     ->searchable()
                     ->sortable(),
 
-                TextColumn::make('sort_order')
-                    ->label('Order')
-                    ->sortable()
-                    ->alignment('center'),
-
-                TextColumn::make('slug')
-                    ->searchable()
-                    ->sortable(),
-
                 TextColumn::make('created_at')
                     ->label('Created At')
                     ->dateTime()

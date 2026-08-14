@@ -9,6 +9,7 @@ use Illuminate\Validation\ValidationException;
 class Department extends Model
 {
     protected $fillable = [
+        'parent_id',
         'name',
         'slug',
         'image',
@@ -42,5 +43,20 @@ class Department extends Model
     public function categories()
     {
         return $this->hasMany(Category::class);
+    }
+
+    public function parent()
+    {
+        return $this->belongsTo(Department::class, 'parent_id');
+    }
+
+    public function children()
+    {
+        return $this->hasMany(Department::class, 'parent_id')->orderBy('sort_order');
+    }
+
+    public function allChildren()
+    {
+        return $this->children()->with('allChildren');
     }
 }

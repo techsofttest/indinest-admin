@@ -603,6 +603,10 @@ class StorefrontController extends Controller
     public function departments(): JsonResponse
     {
         $departments = \App\Models\Department::query()
+            ->with(['children' => function ($q) {
+                $q->orderBy('sort_order', 'asc')->orderBy('name', 'asc');
+            }])
+            ->whereNull('parent_id')
             ->orderBy('sort_order', 'asc')
             ->orderBy('name', 'asc')
             ->get();
@@ -615,6 +619,15 @@ class StorefrontController extends Controller
             'description' => $department->description,
             'sort_order' => (int) $department->sort_order,
             'href' => '/departments/' . $department->slug,
+            'subdepartments' => $department->children->map(fn ($child) => [
+                'id' => $child->id,
+                'name' => $child->name,
+                'slug' => $child->slug,
+                'image_url' => $this->assetUrl($child->image),
+                'description' => $child->description,
+                'sort_order' => (int) $child->sort_order,
+                'href' => '/departments/' . $child->slug,
+            ])->values(),
         ]));
     }
 
