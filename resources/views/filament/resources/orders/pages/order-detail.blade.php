@@ -550,10 +550,10 @@
 
                             <div class="order-product-price">
                                 <div class="order-product-quantity">
-                                    {{ $item->quantity }} × ₹{{ number_format($item->price, 2) }}
+                                    {{ $item->quantity }} × £{{ number_format($item->price, 2) }}
                                 </div>
                                 <div class="order-product-total">
-                                    ₹{{ number_format($item->line_total, 2) }}
+                                    £{{ number_format($item->line_total, 2) }}
                                 </div>
                             </div>
                         </div>
@@ -564,24 +564,24 @@
                 <div class="order-detail-summary">
                     <div class="order-summary-row">
                         <span>Subtotal</span>
-                        <span>${{ number_format($this->record->subtotal, 2) }}</span>
+                        <span>£{{ number_format($this->record->subtotal, 2) }}</span>
                     </div>
 
                     <div class="order-summary-row">
                         <span>Shipping</span>
-                        <span>${{ number_format($this->record->shipping_cost, 2) }}</span>
+                        <span>£{{ number_format($this->record->shipping_cost, 2) }}</span>
                     </div>
 
                     @if($this->record->discount > 0)
                     <div class="order-summary-row">
                         <span>Discount ({{ $this->record->coupon_code }})</span>
-                        <span style="color: #d32f2f;">-${{ number_format($this->record->discount, 2) }}</span>
+                        <span style="color: #d32f2f;">-£{{ number_format($this->record->discount, 2) }}</span>
                     </div>
                     @endif
 
                     <div class="order-summary-row order-summary-total">
                         <span>Total</span>
-                        <span>${{ number_format($this->record->grand_total, 2) }}</span>
+                        <span>£{{ number_format($this->record->grand_total, 2) }}</span>
                     </div>
                 </div>
             </div>
@@ -604,7 +604,7 @@
 
                 <div class="order-info-row">
                     <span>Amount</span>
-                    <span>${{ number_format($this->record->grand_total, 2) }}</span>
+                    <span>£{{ number_format($this->record->grand_total, 2) }}</span>
                 </div>
             </div>
 

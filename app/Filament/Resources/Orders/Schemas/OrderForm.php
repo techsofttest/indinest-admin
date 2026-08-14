@@ -101,11 +101,11 @@ class OrderForm
                 Section::make('Totals')
                     ->schema([
                         Grid::make(2)->schema([
-                            TextInput::make('subtotal')->numeric()->default(0.0)->disabled($isStaff),
+                            TextInput::make('subtotal')->numeric()->default(0.0)->prefix('£')->disabled($isStaff),
                             TextInput::make('shipping_cost')->numeric()->default(0.0)->prefix('£')->disabled($isStaff),
-                            TextInput::make('discount')->numeric()->default(0.0)->disabled($isStaff),
+                            TextInput::make('discount')->numeric()->default(0.0)->prefix('£')->disabled($isStaff),
                             TextInput::make('coupon_code')->disabled($isStaff),
-                            TextInput::make('grand_total')->numeric()->default(0.0)->disabled($isStaff),
+                            TextInput::make('grand_total')->numeric()->default(0.0)->prefix('£')->disabled($isStaff),
                         ]),
                         Textarea::make('notes')->columnSpanFull()->disabled($isStaff),
                     ]),
