@@ -91,8 +91,8 @@ class ProductForm
                             ->searchable()
                             ->preload(), */
 
-                        TextInput::make('sku')
-                            ->label('Product SKU'),
+                        /*TextInput::make('sku')
+                            ->label('Product SKU'),*/
 
                         TextInput::make('slug')
                             ->hidden()
@@ -136,12 +136,12 @@ class ProductForm
                         ->relationship()
                         ->schema([
                             Grid::make(4)->schema([
-                                TextInput::make('sku')
-                                    ->label('Variant SKU'),
+                                /*TextInput::make('sku')
+                                    ->label('Variant SKU'),*/
 
                                 TextInput::make('size')
                                     ->label('Variant Name')
-                                    ->placeholder('e.g. S, M, Pack of 3, Indigo'),
+                                    ->placeholder('e.g. S, M, Pack of 3'),
 
                                 TextInput::make('stock')
                                     ->label('Stock')

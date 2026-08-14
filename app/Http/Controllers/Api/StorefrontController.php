@@ -334,6 +334,9 @@ class StorefrontController extends Controller
             ->get();
 
         $homeFeatured = Category::query()
+            ->with(['children' => function ($q) {
+                $q->where('is_active', true)->orderBy('sort_order');
+            }])
             ->where('home_featured', true)
             ->where('is_active', true)
             ->orderBy('sort_order')
@@ -362,6 +365,12 @@ class StorefrontController extends Controller
                 'name' => $category->name,
                 'slug' => $category->slug,
                 'href' => '/category/' . $category->slug,
+                'subcategories' => $category->children->map(fn (Category $child) => [
+                    'id' => $child->id,
+                    'name' => $child->name,
+                    'slug' => $child->slug,
+                    'href' => '/category/' . $child->slug,
+                ])->values(),
             ])->values(),
         ]);
     }
