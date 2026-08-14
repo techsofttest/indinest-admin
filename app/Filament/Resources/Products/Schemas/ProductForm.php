@@ -94,11 +94,11 @@ class ProductForm
                                 $set('slug', Str::slug($state))
                             ),
 
-                        /*MultiSelect::make('collections')
+                        MultiSelect::make('collections')
                             ->label('Collections')
                             ->relationship('collections', 'name')
                             ->searchable()
-                            ->preload(), */
+                            ->preload(),
 
                         TextInput::make('slug')
                             ->hidden()

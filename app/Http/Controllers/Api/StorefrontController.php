@@ -482,6 +482,10 @@ class StorefrontController extends Controller
             $query->whereHas('brand', fn ($q) => $q->where('slug', $brandSlug));
         }
 
+        if ($collectionSlug = $request->string('collection')->toString()) {
+            $query->whereHas('collections', fn ($q) => $q->where('slug', $collectionSlug));
+        }
+
         if ($departmentSlug = $request->string('department')->toString()) {
             $department = \App\Models\Department::where('slug', $departmentSlug)->first();
             if ($department) {
@@ -629,6 +633,19 @@ class StorefrontController extends Controller
                 'sort_order' => (int) $child->sort_order,
                 'href' => '/departments/' . $child->slug,
             ])->values(),
+        ]));
+    }
+
+    public function collections(): JsonResponse
+    {
+        $collections = \App\Models\Collection::query()->get();
+
+        return response()->json($collections->map(fn ($collection) => [
+            'id' => $collection->id,
+            'name' => $collection->name,
+            'slug' => $collection->slug,
+            'image_url' => $this->assetUrl($collection->image),
+            'href' => '/collections/' . $collection->slug,
         ]));
     }
 

@@ -26,6 +26,7 @@ Route::get('/storefront/categories', [StorefrontController::class, 'categories']
 Route::get('/storefront/featured-categories', [StorefrontController::class, 'featuredCategories']);
 Route::get('/storefront/master-filters', [StorefrontController::class, 'masterFilters']);
 Route::get('/storefront/departments', [StorefrontController::class, 'departments']);
+Route::get('/storefront/collections', [StorefrontController::class, 'collections']);
 Route::get('/storefront/products', [StorefrontController::class, 'products']);
 Route::get('/storefront/products/id/{id}', [StorefrontController::class, 'productById']);
 Route::get('/storefront/search', [StorefrontController::class, 'search']);
