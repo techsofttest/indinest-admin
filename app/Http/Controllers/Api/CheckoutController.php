@@ -386,7 +386,7 @@ class CheckoutController extends Controller
 
         $order = Order::find($request->input('order_id'));
 
-        if ($order->payment_status === 'paid') {
+        if ($order->payment_status === \App\Enums\PaymentStatus::PAID || ($order->payment_status->value ?? $order->payment_status) === 'paid') {
             return response()->json(['error' => 'This order has already been paid.'], 400);
         }
 
@@ -436,9 +436,10 @@ class CheckoutController extends Controller
         // Mark as viewed in session
         session()->put($sessionKey, true);
 
-        $isSuccess = $order->payment_status === 'paid';
-        $isFailed = $order->payment_status === 'failed';
-        $isProcessing = $order->payment_status === 'processing';
+        $paymentStatusVal = $order->payment_status->value ?? (string) $order->payment_status;
+        $isSuccess = $paymentStatusVal === 'paid';
+        $isFailed = $paymentStatusVal === 'failed';
+        $isProcessing = $paymentStatusVal === 'processing';
 
         return response()->json([
             'order_id' => $order->id,

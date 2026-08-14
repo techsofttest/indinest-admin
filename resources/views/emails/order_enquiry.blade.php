@@ -1,6 +1,6 @@
 @extends('emails.layouts.master')
 
-@section('title', 'New Order Enquiry #' . $enquiry->enquiry_number)
+@section('title', 'New Order Enquiry #' . $enquiry->order_number)
 
 @section('content')
     <h2>New Order Enquiry Received</h2>
@@ -10,7 +10,7 @@
     <table cellpadding="5" cellspacing="0" style="width: 100%; border-collapse: collapse; font-size: 14px;">
         <tr>
             <td style="width: 150px; font-weight: bold; padding: 6px 0;">Enquiry Ref:</td>
-            <td>#{{ $enquiry->enquiry_number }}</td>
+            <td>#{{ $enquiry->order_number }}</td>
         </tr>
         <tr>
             <td style="font-weight: bold; padding: 6px 0;">Customer Name:</td>

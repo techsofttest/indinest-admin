@@ -34,7 +34,7 @@ class MailService
     public function sendToMany(array $recipients, Mailable $mailable): void
     {
         foreach ($recipients as $recipient) {
-            $this->send($recipient, $mailable);
+            $this->send($recipient, clone $mailable);
         }
     }
 }

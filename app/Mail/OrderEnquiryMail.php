@@ -19,22 +19,23 @@ class OrderEnquiryMail extends Mailable
     public function __construct(
         public Order $enquiry
     ) {
+        $this->enquiry->loadMissing('items');
     }
 
     /**
      * Get the message envelope.
      */
-    public function getEnvelope(): Envelope
+    public function envelope(): Envelope
     {
         return new Envelope(
-            subject: 'New Order Enquiry #' . $this->enquiry->enquiry_number,
+            subject: 'New Order Enquiry #' . $this->enquiry->order_number,
         );
     }
 
     /**
      * Get the message content definition.
      */
-    public function getContent(): Content
+    public function content(): Content
     {
         return new Content(
             view: 'emails.order_enquiry',

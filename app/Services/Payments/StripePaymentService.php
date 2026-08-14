@@ -183,7 +183,8 @@ class StripePaymentService implements PaymentGatewayInterface
         }
 
         // Check if order is already marked as paid
-        if ($order->payment_status === 'paid') {
+        $paymentStatusVal = $order->payment_status->value ?? (string) $order->payment_status;
+        if ($paymentStatusVal === 'paid') {
             Log::info("Order {$order->order_number} is already paid.");
             return;
         }
@@ -424,7 +425,8 @@ class StripePaymentService implements PaymentGatewayInterface
             throw new \Exception("Order not found for Stripe Checkout Session {$session->id}");
         }
 
-        if ($order->payment_status === 'paid') {
+        $paymentStatusVal = $order->payment_status->value ?? (string) $order->payment_status;
+        if ($paymentStatusVal === 'paid') {
             Log::info("Order {$order->order_number} is already paid.");
             return;
         }
