@@ -601,6 +601,10 @@ class StorefrontController extends Controller
 
     public function product(Product $product): JsonResponse
     {
+        if (!$product->is_active) {
+            abort(404);
+        }
+
         $product->load(['brand', 'category', 'variants', 'reviews', 'images']);
 
         return response()->json($this->productPayload($product));
@@ -821,5 +825,35 @@ class StorefrontController extends Controller
                 ->filter()
                 ->values()
         ])->values());
+    }
+
+    public function contact(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'email' => 'required|email|max:255',
+            'phone' => 'nullable|string|max:50',
+            'type' => 'required|string|max:255',
+            'message' => 'required|string',
+        ]);
+
+        $adminEmail = env('ADMIN_EMAIL', 'techsofttest123@gmail.com');
+
+        try {
+            \Illuminate\Support\Facades\Mail::to($adminEmail)
+                ->send(new \App\Mail\ContactEnquiryMail($validated));
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Enquiry sent successfully.'
+            ]);
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::error('Contact form email failed to send: ' . $e->getMessage());
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to send enquiry. Please try again later.'
+            ], 500);
+        }
     }
 }

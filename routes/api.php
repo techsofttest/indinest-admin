@@ -33,6 +33,7 @@ Route::get('/storefront/search', [StorefrontController::class, 'search']);
 Route::get('/storefront/products/{product:slug}', [StorefrontController::class, 'product']);
 Route::get('/storefront/top-offers', [StorefrontController::class, 'topOffers']);
 Route::get('/storefront/faqs', [StorefrontController::class, 'faqs']);
+Route::post('/storefront/contact', [StorefrontController::class, 'contact']);
 Route::get('/cms/{slug}', [CmsController::class, 'show']);
 
 Route::post('/delivery/check', [DeliveryEligibilityController::class, 'check']);

@@ -13,7 +13,11 @@ class EditProduct extends EditRecord
     protected function getHeaderActions(): array
     {
         return [
-            DeleteAction::make(),
+            DeleteAction::make()
+                ->modalDescription(fn (\App\Models\Product $record) => $record->orderItems()->exists()
+                    ? "Product has been ordered previously. It will be archived instead of permanently deleted. Historical orders will remain unchanged."
+                    : "Are you sure you want to delete this product? It will be removed from the storefront."),
+            \Filament\Actions\RestoreAction::make(),
         ];
     }
 }

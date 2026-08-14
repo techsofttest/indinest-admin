@@ -81,10 +81,12 @@ class ProductsTable
                     ->relationship('category.department', 'name')
                     ->searchable()
                     ->preload(),
+                \Filament\Tables\Filters\TrashedFilter::make(),
             ])
 
             ->recordActions([
                 EditAction::make(),
+                \Filament\Actions\RestoreAction::make(),
             ])
 
             ->headerActions([
@@ -142,7 +144,9 @@ class ProductsTable
 
             ->toolbarActions([
                 BulkActionGroup::make([
-                    DeleteBulkAction::make(),
+                    DeleteBulkAction::make()
+                        ->modalDescription("Are you sure you want to delete the selected products? Products that have been ordered previously will be archived instead of permanently deleted, preserving historical orders."),
+                    \Filament\Actions\RestoreBulkAction::make(),
                 ]),
             ]);
     }
