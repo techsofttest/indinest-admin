@@ -61,9 +61,9 @@ class CategoryForm
                                 ->dehydrated()
                         ]),
 
-                        Textarea::make('description')
+                        /*Textarea::make('description')
                             ->default(null)
-                            ->columnSpanFull(),
+                            ->columnSpanFull(),*/
 
                         FileUpload::make('image')
                             ->image()

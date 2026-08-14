@@ -485,7 +485,8 @@ class StorefrontController extends Controller
         if ($departmentSlug = $request->string('department')->toString()) {
             $department = \App\Models\Department::where('slug', $departmentSlug)->first();
             if ($department) {
-                $categoryIds = \App\Models\Category::where('department_id', $department->id)->pluck('id')->all();
+                $departmentIds = array_merge([$department->id], $department->children()->pluck('id')->all());
+                $categoryIds = \App\Models\Category::whereIn('department_id', $departmentIds)->pluck('id')->all();
                 if (!empty($categoryIds)) {
                     $subCategoryIds = \App\Models\Category::whereIn('parent_id', $categoryIds)->pluck('id')->all();
                     $allCategoryIds = array_merge($categoryIds, $subCategoryIds);

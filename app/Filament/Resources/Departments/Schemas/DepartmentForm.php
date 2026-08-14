@@ -46,10 +46,10 @@ class DepartmentForm
                                 ->disk('public')
                                 ->saveUploadedFileUsing(fn (\Livewire\Features\SupportFileUploads\TemporaryUploadedFile $file) => \App\Traits\ProcessesImageUploads::convertToWebpAndCompress($file, 'departments')),
 
-                            Textarea::make('description')
+                            /*Textarea::make('description')
                                 ->label('Description')
                                 ->rows(4)
-                                ->columnSpanFull(),
+                                ->columnSpanFull(),*/
                         ])->columnSpanFull(),
                     ])->columnSpanFull(),
             ]);
