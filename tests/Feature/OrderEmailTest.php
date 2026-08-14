@@ -164,4 +164,64 @@ class OrderEmailTest extends TestCase
                    $mail->enquiry->order_number === $order->order_number;
         });
     }
+
+    public function test_stripe_checkout_session_completed_triggers_order_emails_and_idempotency(): void
+    {
+        Mail::fake();
+        config(['app.admin_email' => 'techsofttest123@gmail.com']);
+
+        $order = Order::create([
+            'order_number' => 'IND-TEST-9999',
+            'customer_name' => 'John Doe',
+            'customer_email' => 'john@example.com',
+            'first_name' => 'John',
+            'last_name' => 'Doe',
+            'email' => 'john@example.com',
+            'phone' => '07111222444',
+            'country' => 'United Kingdom',
+            'address' => '1 Baker St',
+            'city' => 'London',
+            'state' => 'London',
+            'pin_code' => 'NW1 6XE',
+            'shipping_method' => 'standard',
+            'payment_method' => 'stripe',
+            'payment_status' => PaymentStatus::PENDING,
+            'status' => OrderStatus::PENDING,
+            'stripe_checkout_session_id' => 'cs_test_9999',
+            'subtotal' => 50.00,
+            'shipping_cost' => 4.00,
+            'discount' => 0.00,
+            'grand_total' => 54.00,
+        ]);
+
+        $service = app(\App\Services\Payments\StripePaymentService::class);
+        $sessionObj = (object)[
+            'id' => 'cs_test_9999',
+            'payment_status' => 'paid',
+            'payment_intent' => 'pi_test_123',
+            'amount_total' => 5400,
+            'currency' => 'gbp',
+            'metadata' => (object)[
+                'order_id' => (string) $order->id,
+                'order_number' => $order->order_number,
+            ]
+        ];
+
+        // First delivery
+        $service->processSuccessfulCheckoutSession($sessionObj, 'evt_test_1001');
+
+        Mail::assertSent(OrderConfirmationMail::class, 1);
+        Mail::assertSent(AdminOrderNotificationMail::class, 1);
+
+        // Verify order status updated to paid
+        $order->refresh();
+        $this->assertEquals(PaymentStatus::PAID, $order->payment_status);
+
+        // Second delivery (duplicate event)
+        $service->processSuccessfulCheckoutSession($sessionObj, 'evt_test_1001');
+
+        // Emails should still only have been sent ONCE
+        Mail::assertSent(OrderConfirmationMail::class, 1);
+        Mail::assertSent(AdminOrderNotificationMail::class, 1);
+    }
 }
