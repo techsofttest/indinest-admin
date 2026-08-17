@@ -24,7 +24,7 @@ return new class extends Migration
         // Seed countries
         $countries = [
             ['name' => 'United Kingdom', 'code' => 'GB', 'checkout_type' => 'payment'],
-            ['name' => 'Ireland', 'code' => 'IE', 'checkout_type' => 'payment'],
+            ['name' => 'Ireland', 'code' => 'IE', 'checkout_type' => 'enquiry'],
             ['name' => 'Austria', 'code' => 'AT', 'checkout_type' => 'enquiry'],
             ['name' => 'Belgium', 'code' => 'BE', 'checkout_type' => 'enquiry'],
             ['name' => 'Bulgaria', 'code' => 'BG', 'checkout_type' => 'enquiry'],

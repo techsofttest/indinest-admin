@@ -61,15 +61,14 @@ class Order extends Model
         return $this->belongsTo(User::class, 'assigned_by');
     }
 
+    public function markAsShipped()
+    {
+        app(\App\Services\OrderService::class)->markAsShipped($this);
+    }
+
     public function markAsDelivered()
     {
-        if ($this->order_type === 'order' && $this->payment_status !== \App\Enums\PaymentStatus::PAID) {
-            throw new \Exception('Payment is required before marking as delivered.');
-        }
-
-        $this->update([
-            'status' => \App\Enums\OrderStatus::DELIVERED,
-        ]);
+        app(\App\Services\OrderService::class)->markAsDelivered($this);
     }
 }
 

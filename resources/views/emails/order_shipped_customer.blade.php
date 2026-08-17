@@ -1,11 +1,11 @@
 @extends('emails.layouts.master')
 
-@section('title', 'Order Confirmed – ' . $order->order_number)
+@section('title', 'Your Order is On Its Way – ' . $order->order_number)
 
 @section('content')
-    <h2 style="color: #010526; margin-bottom: 5px;">Payment Successful &amp; Order Confirmed!</h2>
+    <h2 style="color: #010526; margin-bottom: 5px;">Your Order is On Its Way!</h2>
     <p>Hi {{ $order->customer_name ?? $order->first_name ?? 'Customer' }},</p>
-    <p>Thank you for your order! Your payment for <strong>{{ $order->order_number }}</strong> was successful and your order is now confirmed.</p>
+    <p>Great news! Your order <strong>{{ $order->order_number }}</strong> has been shipped and is now on its way to you.</p>
 
     @include('emails.partials.order_details')
 

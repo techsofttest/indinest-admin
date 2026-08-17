@@ -22,6 +22,16 @@ class OrderEmailTest extends TestCase
 {
     use DatabaseTransactions;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+        config([
+            'database.default' => 'mysql',
+            'database.connections.mysql.database' => 'indinest',
+            'database.connections.mysql.prefix' => 'in_',
+        ]);
+    }
+
     public function test_customer_order_confirmation_mail_renders_correctly(): void
     {
         Mail::fake();

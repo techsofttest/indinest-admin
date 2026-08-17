@@ -11,6 +11,7 @@ enum OrderStatus: string
     case PACKED = 'packed';
     case READY = 'ready';
     case OUT_FOR_DELIVERY = 'out_for_delivery';
+    case SHIPPED = 'shipped';
     case DELIVERED = 'delivered';
     case CANCELLED = 'cancelled';
     case REFUND_REQUESTED = 'refund_requested';
