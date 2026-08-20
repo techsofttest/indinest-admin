@@ -33,7 +33,7 @@ return [
     |*/
     'rates' => [
         'standard' => 4.45,
-        'express' => 6.45,
+        'express' => 10.96,
     ],
 
     /*
