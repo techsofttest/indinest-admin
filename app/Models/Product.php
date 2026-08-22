@@ -51,7 +51,7 @@ class Product extends Model
             $slug = Str::slug($product->name);
             $originalSlug = $slug;
             $count = 1;
-            while (static::where('slug', $slug)->where('id', '!=', $product->id)->exists()) {
+            while (static::withTrashed()->where('slug', $slug)->where('id', '!=', $product->id)->exists()) {
                 $slug = $originalSlug . '-' . $count++;
             }
             $product->slug = $slug;

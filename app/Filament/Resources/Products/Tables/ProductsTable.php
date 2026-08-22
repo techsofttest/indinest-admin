@@ -30,7 +30,9 @@ class ProductsTable
 
                 TextColumn::make('name')
                     ->label('Product')
-                    ->searchable()
+                    ->searchable(query: function ($query, string $search) {
+                        $query->where('products.name', 'like', "%{$search}%");
+                    })
                     ->sortable()
                     ->limit(30),
 
@@ -47,8 +49,7 @@ class ProductsTable
                 TextColumn::make('department.name')
                     ->label('Department')
                     ->state(fn ($record) => $record->category?->department?->name)
-                    ->sortable(false)
-                    ->searchable(),
+                    ->sortable(false),
 
                 /*TextColumn::make('variants_count')
                     ->label('Variants')
